@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+body {
+  margin: 0;
+  font-family: 'Comic Sans MS', 'Impact', sans-serif; /* Ironically used [cite: 42] */
+  background-color: #1a1a1a;
+  color: #00ff00; /* MLG Neon Green [cite: 43] */
+  overflow: hidden;
+}
+
+h1, h2, h3 {
+  text-transform: uppercase;
+  text-shadow: 3px 3px 0px #ff00ff; /* Hot Pink Shadow */
+}
+
+.arcade-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  border: 5px solid #ff00ff;
+}
+
+.game-canvas {
+  border: 4px solid #00ff00;
+  box-shadow: 0 0 20px #00ff00;
+}
+
+.btn-meme {
+  background: #ff00ff;
+  color: white;
+  font-family: 'Impact';
+  font-size: 1.5rem;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  transform: skew(-10deg);
+  margin: 10px;
+}
+
+.btn-meme:hover {
+  background: #00ff00;
+  color: black;
+  transform: skew(-10deg) scale(1.1);
+}
+
+.floating-text {
+  position: absolute;
+  font-weight: bold;
+  font-size: 24px;
+  color: yellow;
+  pointer-events: none;
+  animation: floatUp 1s ease-out forwards;
+}
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-50px); }
+}
