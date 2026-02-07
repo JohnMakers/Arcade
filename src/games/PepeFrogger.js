@@ -12,7 +12,7 @@ const PepeFrogger = ({ onExit }) => {
   // --- REACT UI STATE ---
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false); // Controls the "Get Ready" overlay
+  const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   
   // Mechanics UI
@@ -22,12 +22,14 @@ const PepeFrogger = ({ onExit }) => {
 
   const GRID_SIZE = 40;
   const COLS = 10;
+  const CANVAS_WIDTH = 400;
 
   // --- ENGINE REF ---
   const engine = useRef({
-    running: false, // Physics loop active?
+    running: false,
     frames: 0,
     cameraY: 0,
+    autoScrollY: 0, // The "Doom" camera position
     score: 0,
     
     // Mechanics
@@ -36,14 +38,15 @@ const PepeFrogger = ({ onExit }) => {
     dashCooldown: 0,
     shield: false,
     
-    // Entities - SPAWN AT GRID 13 (Visible!)
+    // Entities
     hero: { 
         gridX: 4, gridY: 13, 
         x: 4 * 40, y: 13 * 40, 
         targetX: 4 * 40, targetY: 13 * 40, 
         isMoving: false 
     },
-    lanes: [],
+    lanes: [], // { gridY, type, speed, elements: [] }
+    lastLaneType: 'grass', // For preventing double grass
     particles: [],
     
     sprites: {},
@@ -70,20 +73,18 @@ const PepeFrogger = ({ onExit }) => {
     load('tex_water', ASSETS.TEXTURE_WATER);
   }, []);
 
-  // --- 2. INPUT HANDLER (Instant Start) ---
+  // --- 2. INPUT HANDLER ---
   useEffect(() => {
-    // Force focus
     if(containerRef.current) containerRef.current.focus();
 
     const handleInput = (e) => {
-        // 1. Prevent Browser Scrolling
         if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," ","w","a","s","d"].includes(e.key)) {
             e.preventDefault();
         }
         
         const state = engine.current;
 
-        // 2. INSTANT START: If game hasn't started, first key press starts it
+        // Instant Start
         if (!state.running && !gameOver) {
             state.running = true;
             setIsPlaying(true);
@@ -115,7 +116,6 @@ const PepeFrogger = ({ onExit }) => {
         const targetGX = state.hero.gridX + dx;
         const targetGY = state.hero.gridY + dy;
 
-        // Allow moving mostly anywhere, but clamp X to screen
         if (targetGX >= 0 && targetGX < COLS) {
             state.hero.gridX = targetGX;
             state.hero.gridY = targetGY;
@@ -124,10 +124,17 @@ const PepeFrogger = ({ onExit }) => {
             state.hero.targetY = targetGY * GRID_SIZE;
             state.hero.isMoving = true;
 
-            // Combo Logic
+            // COMBO SYSTEM (Improved)
             const now = Date.now();
-            if (now - state.lastMoveTime < 500) state.multiplier = Math.min(4, state.multiplier + 0.5);
-            else state.multiplier = 1;
+            const timeDiff = now - state.lastMoveTime;
+            
+            if (dy === -1 && timeDiff < 1000) { 
+                // Only moving UP (Forward) counts for combo
+                state.multiplier = Math.min(4, state.multiplier + 0.5);
+            } else {
+                // Moving sideways, back, or waiting too long resets combo
+                state.multiplier = 1;
+            }
             
             state.lastMoveTime = now;
             setMultiplier(state.multiplier);
@@ -146,12 +153,9 @@ const PepeFrogger = ({ onExit }) => {
     const handleTouchEnd = (e) => {
         const diffX = e.changedTouches[0].screenX - touchStartX;
         const diffY = e.changedTouches[0].screenY - touchStartY;
-        
-        // Emulate Arrow Key
         let key = '';
         if (Math.abs(diffX) > Math.abs(diffY)) key = diffX > 0 ? 'ArrowRight' : 'ArrowLeft';
         else key = diffY > 0 ? 'ArrowDown' : 'ArrowUp';
-        
         handleInput({ key, code: key, shiftKey: false, preventDefault: () => {} });
     };
 
@@ -166,24 +170,38 @@ const PepeFrogger = ({ onExit }) => {
   }, [gameOver]);
 
   // --- 3. GENERATION ---
-  const generateLane = (gridY, difficulty) => {
+  const generateLane = (gridY, difficulty, forceSafe = false) => {
       let biome = 'suburbs';
       if (gridY < -20) biome = 'city';
       if (gridY < -80) biome = 'matrix';
 
       let type = 'grass';
       const rand = Math.random();
+      const lastType = engine.current.lastLaneType;
 
-      // Simple Biome Mix
-      if (biome === 'suburbs') {
-         if (rand > 0.6) type = 'road';
-      } else if (biome === 'city') {
-         if (rand > 0.3) type = 'road';
-         else if (rand > 0.8) type = 'water';
-      } else {
-         if (rand > 0.2) type = 'road'; // Glitch road
-         else type = 'water';
+      // START ZONE LOGIC
+      if (forceSafe) {
+          type = 'grass';
+      } 
+      // NO FREE PATH LOGIC
+      else if (lastType === 'grass') {
+          // If last was grass, this MUST be road or water
+          type = rand > 0.5 ? 'road' : (biome !== 'suburbs' ? 'water' : 'road');
+      } 
+      // Standard Generation
+      else {
+          if (biome === 'suburbs') {
+             if (rand > 0.4) type = 'road';
+          } else if (biome === 'city') {
+             if (rand > 0.3) type = 'road';
+             else if (rand > 0.7) type = 'water';
+          } else {
+             if (rand > 0.2) type = 'road';
+             else type = 'water';
+          }
       }
+      
+      engine.current.lastLaneType = type; // Remember for next time
 
       const elements = [];
       let speed = 0;
@@ -201,8 +219,8 @@ const PepeFrogger = ({ onExit }) => {
                   isPowerup: false
               });
           }
-      } else if (Math.random() < 0.08) {
-          // Rare Powerup
+      } else if (Math.random() < 0.08 && !forceSafe) {
+          // Rare Powerup (Only on non-start grass)
           elements.push({
               x: Math.random() * 300 + 20, w: 30,
               type: Math.random() < 0.7 ? 'gold' : 'shield',
@@ -228,25 +246,36 @@ const PepeFrogger = ({ onExit }) => {
     const ctx = canvas.getContext('2d');
     let animationId;
 
-    // Reset Engine
     const resetGame = () => {
         engine.current.running = false;
-        // FIX: Start at Grid 13 (Visible 520px), not 15 (600px - offscreen)
+        // Start at Grid 13
         engine.current.hero = { 
             gridX: 4, gridY: 13, 
             x: 160, y: 520, 
             targetX: 160, targetY: 520, 
             isMoving: false 
         };
-        // FIX: Set Camera immediately to match hero
-        engine.current.cameraY = (13 * GRID_SIZE) - 400; 
+        // Reset Camera
+        const startCam = (13 * GRID_SIZE) - 400;
+        engine.current.cameraY = startCam;
+        engine.current.autoScrollY = startCam; // Reset Doom Scroll
         
         engine.current.score = 0;
         engine.current.shield = false;
         engine.current.lanes = [];
+        engine.current.lastLaneType = 'grass';
         
-        // Init Lanes
-        for (let i=0; i<20; i++) engine.current.lanes.push(generateLane(15 - i, 0));
+        // Init Lanes - SAFE ZONE LOGIC
+        // Create 20 lanes. Indices 0-4 (Grid 15-11) are FORCED SAFE.
+        for (let i=0; i<20; i++) {
+            // i=0 -> Grid 15 (Behind)
+            // i=1 -> Grid 14 (Behind)
+            // i=2 -> Grid 13 (Start Line)
+            // i=3 -> Grid 12 (Front)
+            // i=4 -> Grid 11 (Front)
+            const isStartZone = i < 5; 
+            engine.current.lanes.push(generateLane(15 - i, 0, isStartZone));
+        }
     };
     resetGame();
 
@@ -255,8 +284,6 @@ const PepeFrogger = ({ onExit }) => {
         const w = canvas.width;
         const h = canvas.height;
 
-        // A. UPDATE
-        // We allow updates even if not "running" fully yet, to handle camera settling
         if (state.running && !gameOver) {
             state.frames++;
             if (state.dashCooldown > 0) {
@@ -264,7 +291,7 @@ const PepeFrogger = ({ onExit }) => {
                 if (state.dashCooldown === 0) setDashReady(true);
             }
 
-            // Move Hero
+            // Hero Interpolation
             if (state.hero.isMoving) {
                 state.hero.x += (state.hero.targetX - state.hero.x) * 0.4;
                 state.hero.y += (state.hero.targetY - state.hero.y) * 0.4;
@@ -275,8 +302,21 @@ const PepeFrogger = ({ onExit }) => {
                 }
             }
 
-            // Camera Tracking
-            const targetCam = (state.hero.gridY * GRID_SIZE) - 400;
+            // AUTO-SCROLL LOGIC ("The Doom Camera")
+            // Starts after score 100
+            if (state.score > 100) {
+                // Scroll speed increases with score
+                const scrollSpeed = 0.5 + (state.score * 0.001); 
+                state.autoScrollY -= scrollSpeed;
+            }
+
+            // Normal Camera Tracking (Follow Hero)
+            const heroCam = (state.hero.gridY * GRID_SIZE) - 400;
+            
+            // Actual Camera is whichever is "Higher" (smaller Y value)
+            // This prevents the player from waiting at the bottom
+            const targetCam = Math.min(heroCam, state.autoScrollY);
+            
             state.cameraY += (targetCam - state.cameraY) * 0.1;
 
             // Lanes Logic
@@ -292,19 +332,17 @@ const PepeFrogger = ({ onExit }) => {
                 // Collision
                 if (lane.gridY === state.hero.gridY && !state.hero.isMoving) {
                     let onLog = false;
-                    let safe = lane.type === 'grass';
                     
                     lane.elements.forEach(el => {
-                        // Forgiving Hitbox
                         if (state.hero.x + 25 > el.x + 5 && state.hero.x + 10 < el.x + el.w - 5) {
                             if (el.isPowerup) {
                                 if (el.type === 'gold') { setScore(s => s + 500); state.score += 500; }
                                 if (el.type === 'shield') { setHasShield(true); state.shield = true; }
-                                el.x = -9999; // Remove
+                                el.x = -9999; 
                             } else if (lane.type === 'water') {
                                 onLog = true;
                                 state.hero.x += lane.speed;
-                                state.hero.targetX = state.hero.x; // Sync target so we don't snap back
+                                state.hero.targetX = state.hero.x; 
                             } else {
                                 hitObstacle();
                             }
@@ -323,8 +361,14 @@ const PepeFrogger = ({ onExit }) => {
             state.lanes = state.lanes.filter(l => l.gridY < state.hero.gridY + 10);
             
             // Score
-            const dist = (15 - state.hero.gridY) * 10;
+            const dist = (13 - state.hero.gridY) * 10;
             if (dist > state.score) { state.score = dist; setScore(dist); }
+            
+            // DEATH BY CAMERA (Doom Scroll)
+            // If hero is below the camera view + canvas height
+            if (state.hero.y > state.cameraY + h + GRID_SIZE) {
+                hitObstacle();
+            }
         }
 
         // B. RENDER
@@ -337,7 +381,7 @@ const PepeFrogger = ({ onExit }) => {
         state.lanes.forEach(lane => {
             const y = lane.gridY * GRID_SIZE;
             
-            // Backgrounds
+            // Textures
             let color = '#333';
             if (lane.type === 'grass') color = lane.biome === 'matrix' ? '#003300' : '#2e7d32';
             if (lane.type === 'water') color = '#1565c0';
@@ -367,6 +411,16 @@ const PepeFrogger = ({ onExit }) => {
                 }
             });
         });
+
+        // Doom Line (Visual Warning)
+        if (state.score > 80) {
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+            const dangerY = state.cameraY + h;
+            ctx.fillRect(0, dangerY - 20, w, 20);
+            ctx.fillStyle = 'red';
+            ctx.font = '10px monospace';
+            ctx.fillText("! RUN !", 10, dangerY - 5);
+        }
 
         // Hero
         const pepe = engine.current.sprites['pepe'];
@@ -407,7 +461,6 @@ const PepeFrogger = ({ onExit }) => {
     return () => cancelAnimationFrame(animationId);
   }, [resetKey]);
 
-  // Sync Timer (Optional auto-start, but keys also start it now)
   useEffect(() => {
       if(!gameOver) setTimeout(() => {
           setIsPlaying(true);
@@ -420,7 +473,7 @@ const PepeFrogger = ({ onExit }) => {
         ref={containerRef}
         className="game-wrapper" 
         tabIndex="0" 
-        style={{outline: '4px solid #00ff00'}} // Visual feedback that it's active
+        style={{outline: '4px solid #00ff00'}} 
         onClick={() => containerRef.current.focus()}
     >
         <GameUI 
@@ -436,13 +489,12 @@ const PepeFrogger = ({ onExit }) => {
             gameId="frogger" 
         />
         
-        {/* HUD */}
         {isPlaying && !gameOver && (
             <div style={{position: 'absolute', top: 60, left: 10, pointerEvents:'none'}}>
                 <div style={{color: dashReady?'cyan':'gray', fontFamily:'monospace', fontSize:16, textShadow:'1px 1px black'}}>
                     DASH: {dashReady ? 'READY (SHIFT)' : 'WAIT'}
                 </div>
-                <div style={{color: 'yellow', fontFamily:'monospace', fontSize:16, textShadow:'1px 1px black'}}>
+                <div style={{color: multiplier > 1 ? 'yellow' : 'white', fontFamily:'monospace', fontSize:16, textShadow:'1px 1px black'}}>
                     COMBO: {multiplier.toFixed(1)}x
                 </div>
                 {hasShield && <div style={{color:'cyan', fontSize:16, textShadow:'1px 1px black'}}>SHIELD ON</div>}
