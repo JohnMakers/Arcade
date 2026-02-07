@@ -21,7 +21,7 @@ const ChadRun = ({ onExit }) => {
     frames: 0,
     speed: 6,
     score: 0,
-    nextSpawnFrame: 0, // NEW: Tracks exactly when next obstacle appears
+    nextSpawnFrame: 0,
     
     // Physics
     hero: { 
@@ -43,8 +43,12 @@ const ChadRun = ({ onExit }) => {
   const JUMP_FORCE = -13; 
   const JUMP_CUTOFF = -5; 
   const FAST_DROP = 2.5; 
-  const BASE_SPEED = 6;
-  const MAX_SPEED = 20;
+  const BASE_SPEED = 6.5; // Slightly faster start
+  const MAX_SPEED = 22; // Higher cap
+
+  // Dimensions
+  const STAND_H = 60;
+  const DUCK_H = 30;
 
   // --- 1. ASSET LOADER ---
   useEffect(() => {
@@ -59,7 +63,7 @@ const ChadRun = ({ onExit }) => {
     load('bird', ASSETS.OBSTACLE_BIRD);
   }, []);
 
-  // --- 2. INPUT HANDLER ---
+  // --- 2. INPUT HANDLER (Robust Ducking) ---
   useEffect(() => {
     if(containerRef.current) containerRef.current.focus();
 
@@ -79,13 +83,15 @@ const ChadRun = ({ onExit }) => {
         const isJumpKey = key === ' ' || key === 'ArrowUp' || key === 'w';
         const isDuckKey = key === 'ArrowDown' || key === 's';
 
-        // Jump
+        // JUMP
         if (isJumpKey) {
             if (isDown) {
                 if (state.hero.isGrounded) {
                     state.hero.vy = JUMP_FORCE;
                     state.hero.isGrounded = false;
                     state.hero.isJumping = true;
+                    // Auto-stand if jumping
+                    state.hero.isDucking = false; 
                 }
             } else {
                 if (state.hero.vy < JUMP_CUTOFF) state.hero.vy = JUMP_CUTOFF;
@@ -93,14 +99,23 @@ const ChadRun = ({ onExit }) => {
             }
         }
 
-        // Duck
-        if (isDuckKey) state.hero.isDucking = isDown;
+        // DUCK (Fixing the Float Glitch)
+        if (isDuckKey) {
+            const wasDucking = state.hero.isDucking;
+            state.hero.isDucking = isDown;
+
+            if (isDown && !wasDucking && state.hero.isGrounded) {
+                // Instantly snap Y down so feet stay on ground
+                // Old Y (Top of Head at 60px) -> New Y (Top of Head at 30px)
+                // If we don't move Y, the 30px sprite draws at the top, floating 30px above ground
+                state.hero.y += (STAND_H - DUCK_H);
+            }
+        }
     };
 
     const down = (e) => handleInput(e, true);
     const up = (e) => handleInput(e, false);
     
-    // Mobile Touch
     const touchStart = (e) => {
         const y = e.touches[0].clientY;
         if (y > window.innerHeight / 2) handleInput({key: 'ArrowDown', preventDefault:()=>{}}, true);
@@ -124,45 +139,52 @@ const ChadRun = ({ onExit }) => {
     };
   }, [gameOver]);
 
-  // --- 3. DYNAMIC SPAWNING ---
-  const scheduleNextSpawn = () => {
-      const state = engine.current;
-      // Faster speed = Shorter time between spawns, but we need Physics Gaps
-      // Min gap is around 40-60 frames at start, drops to 25 at high speed
-      // Random variance +20 frames
-      const baseGap = Math.max(30, 90 - (state.speed * 2)); 
-      const variance = Math.random() * 40; 
-      state.nextSpawnFrame = state.frames + baseGap + variance;
-  };
-
+  // --- 3. AGGRESSIVE SPAWNING ---
   const spawnObstacle = () => {
       const state = engine.current;
       
-      // Force randomness at start: 50/50 bird/soyjak even at low score
-      // but ensure birds are "High" (duckable) at start so no impossible jumps
-      const allowBird = state.score > 2 || Math.random() > 0.5;
-      const type = (Math.random() < 0.4 && allowBird) ? 'bird' : 'soyjak';
+      // Minimum gap calculation (Physics based)
+      // At speed 6: Gap ~ 200px. At speed 15: Gap ~ 400px.
+      const safeGap = state.speed * 30; 
       
+      const lastOb = state.obstacles[state.obstacles.length - 1];
+      if (lastOb && (850 - (lastOb.x + lastOb.w) < safeGap)) return;
+
+      const type = (state.score > 3 && Math.random() < 0.4) ? 'bird' : 'soyjak';
       let w = 40, h = 40, y = state.groundY - 40;
       
       if (type === 'soyjak') {
-          const doubleChance = Math.min(0.6, state.score * 0.05); // Increases with score
-          if (Math.random() < doubleChance) w = 75; // Double Group
+          const doubleChance = Math.min(0.6, state.score * 0.05);
+          if (Math.random() < doubleChance) w = 75; 
           else w = 35; 
           h = 50;
           y = state.groundY - h;
       } else {
+          // BIRD LOGIC FIX
           w = 40; h = 30;
-          // Low birds (must jump) only appear after score 10
-          const canBeLow = state.score > 10;
-          const isLow = canBeLow && Math.random() < 0.4;
-          y = state.groundY - (isLow ? 50 : 95); 
+          
+          // High Bird (Must Duck)
+          // Y needs to be low enough to hit Standing Head (440)
+          // But high enough to miss Ducking Head (470)
+          // Setting Y to 435. 
+          // Hitbox: 440 to 460.
+          // Standing Head (440-500) -> Overlaps.
+          // Ducking Head (470-500) -> Clears.
+          const highBirdY = state.groundY - 65; 
+          
+          // Low Bird (Must Jump)
+          const lowBirdY = state.groundY - 25; 
+
+          const isLow = state.score > 8 && Math.random() < 0.3;
+          y = isLow ? lowBirdY : highBirdY;
       }
 
       state.obstacles.push({ x: 850, y, w, h, type, passed: false });
       
-      // Schedule next
-      scheduleNextSpawn();
+      // Schedule next spawn aggressively
+      // Base frequency: 40 frames (0.6s) -> reduces to 25 frames
+      const freq = Math.max(25, 50 - state.speed);
+      state.nextSpawnFrame = state.frames + freq + (Math.random() * 20);
   };
 
   const spawnCloud = (forceX = null) => {
@@ -181,7 +203,6 @@ const ChadRun = ({ onExit }) => {
     const ctx = canvas.getContext('2d');
     let animationId;
 
-    // Reset Engine
     const resetGame = () => {
         engine.current.running = false;
         engine.current.hero = { 
@@ -194,9 +215,7 @@ const ChadRun = ({ onExit }) => {
         engine.current.clouds = [];
         engine.current.frames = 0;
         
-        // Randomize first spawn time (between 60 and 120 frames)
-        engine.current.nextSpawnFrame = 60 + Math.random() * 60;
-
+        engine.current.nextSpawnFrame = 30; // Start fast
         for(let i=0; i<5; i++) spawnCloud(Math.random() * 800);
     };
     resetGame();
@@ -214,19 +233,16 @@ const ChadRun = ({ onExit }) => {
         if (state.running && !gameOver) {
             state.frames++;
             
-            // --- PHYSICS ---
+            // Physics
             let gravity = GRAVITY;
             if (state.hero.isDucking && !state.hero.isGrounded) gravity += FAST_DROP;
 
             state.hero.vy += gravity;
             state.hero.y += state.hero.vy;
 
-            // Hitbox Dimensions
-            const normalH = 60;
-            const duckH = 30;
-            const currentH = state.hero.isDucking ? duckH : normalH;
+            // Height Management
+            const currentH = state.hero.isDucking ? DUCK_H : STAND_H;
             
-            // Ground Collision
             if (state.hero.y + currentH >= state.groundY) {
                 state.hero.y = state.groundY - currentH;
                 state.hero.vy = 0;
@@ -234,19 +250,18 @@ const ChadRun = ({ onExit }) => {
             }
 
             // Speed Scaling
-            const targetSpeed = BASE_SPEED + (state.score * 0.25);
+            const targetSpeed = BASE_SPEED + (state.score * 0.3);
             state.speed = Math.min(MAX_SPEED, targetSpeed);
 
-            // --- OBSTACLES ---
+            // Obstacles
             state.obstacles.forEach(ob => {
                 ob.x -= state.speed;
 
-                // Precision Hitbox
+                // Hitboxes (Padded for fairness)
                 const heroHitbox = {
-                    x: state.hero.x + 10,
-                    // FIX: Hitbox Y follows Physics Y exactly
-                    y: state.hero.y + 5, 
-                    w: 20,
+                    x: state.hero.x + 12,
+                    y: state.hero.y + 5,
+                    w: 16,
                     h: currentH - 10
                 };
 
@@ -272,7 +287,6 @@ const ChadRun = ({ onExit }) => {
 
             state.obstacles = state.obstacles.filter(ob => ob.x > -100);
             
-            // SPAWNING
             if (state.frames >= state.nextSpawnFrame) spawnObstacle();
             
             state.clouds.forEach(c => c.x -= c.speed * 0.5);
@@ -280,7 +294,7 @@ const ChadRun = ({ onExit }) => {
             if (state.frames % 120 === 0) spawnCloud();
         }
 
-        // --- DRAWING ---
+        // Draw
         ctx.fillStyle = '#444';
         state.clouds.forEach(c => ctx.fillRect(c.x, c.y, c.w, 20));
 
@@ -293,15 +307,13 @@ const ChadRun = ({ onExit }) => {
             }
         });
 
-        // DRAW HERO
-        // FIX: Removed the +30 offset. 
-        // Logic: if ducking, physics sets y=470 (ground-30). Draw at 470.
-        // If standing, physics sets y=440 (ground-60). Draw at 440.
-        // Result: Feet stay planted on ground line (500).
-        const currentH = state.hero.isDucking ? 30 : 60;
+        // Draw Hero
+        const currentH = state.hero.isDucking ? DUCK_H : STAND_H;
         const imgChad = state.sprites['chad'];
         
         if (imgChad) {
+            // If ducking, we stretch/squash sprite or crop it. 
+            // Simple: Draw it squeezed.
             ctx.drawImage(imgChad, state.hero.x, state.hero.y, 40, currentH);
         } else {
             ctx.fillStyle = 'cyan';
