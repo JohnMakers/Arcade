@@ -8,11 +8,9 @@ export const ASSETS = {
   PEPE_HERO: "https://upload.wikimedia.org/wikipedia/en/8/87/Pepe_the_Frog.jpg",
   NORMIE_CAR: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/480px-Cat03.jpg", 
   NYAN_LOG: "https://upload.wikimedia.org/wikipedia/en/e/ed/Nyan_cat_250px_frame.PNG",
-  SAFE_ZONE: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Twitch_logo_2019.svg/1200px-Twitch_logo_2019.svg.png",
 
-  // Game 3: Stonks Jump (Fixed)
+  // Game 3: Stonks Jump (Robust)
   STONKS_MAN: "https://upload.wikimedia.org/wikipedia/en/b/b9/Surreal_memes_stonks.png",
-  // Using reliable Wikimedia placeholders for logic elements
   PLATFORM_GREEN: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Green_rectangle.svg/480px-Green_rectangle.svg.png", 
   PLATFORM_RED: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Infobox_info_icon.svg/480px-Infobox_info_icon.svg.png",
   PLATFORM_BLUE: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Blue_rectangle.svg/480px-Blue_rectangle.svg.png",

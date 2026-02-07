@@ -8,240 +8,234 @@ const StonksJump = ({ onExit }) => {
   const canvasRef = useRef(null);
   const { username } = useContext(UserContext);
 
-  // UI State (Score/Over) - separate from Game Loop to prevent re-renders
+  // UI State
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [resetKey, setResetKey] = useState(0);
 
-  // --- GAME ENGINE STATE (Mutable Refs) ---
+  // --- GAME STATE (Mutable) ---
   const gameState = useRef({
-    hero: { x: 200, y: 400, vx: 0, vy: 0, w: 40, h: 40 },
+    hero: { x: 185, y: 300, vx: 0, vy: 0, w: 40, h: 40 },
     cameraY: 0,
     platforms: [],
     keys: { left: false, right: false },
-    active: false,
-    sprites: {}
+    active: true,
+    sprites: {} // Stores loaded images
   });
 
-  // --- 1. ASSET PRELOADER ---
+  // --- 1. ROBUST ASSET LOADER ---
   useEffect(() => {
-    const loadAssets = async () => {
-      const loadImg = (src) => new Promise((resolve) => {
-        const img = new Image();
-        img.src = src;
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(img); // Fail silently to avoid crash
-      });
-
-      const [hero, green, red, blue, rocket] = await Promise.all([
-        loadImg(ASSETS.STONKS_MAN),
-        loadImg(ASSETS.PLATFORM_GREEN),
-        loadImg(ASSETS.PLATFORM_RED),
-        loadImg(ASSETS.PLATFORM_BLUE),
-        loadImg(ASSETS.ROCKET)
-      ]);
-
-      gameState.current.sprites = { hero, green, red, blue, rocket };
-      setLoading(false);
+    const loadSprite = (key, src) => {
+      const img = new Image();
+      img.src = src;
+      img.crossOrigin = "Anonymous"; // Fix Tainted Canvas
+      img.onload = () => { gameState.current.sprites[key] = img; };
+      // No onerror handling needed; renderer checks if sprite exists
     };
-    loadAssets();
+
+    loadSprite('hero', ASSETS.STONKS_MAN);
+    loadSprite('green', ASSETS.PLATFORM_GREEN);
+    loadSprite('red', ASSETS.PLATFORM_RED);
+    loadSprite('blue', ASSETS.PLATFORM_BLUE);
+    loadSprite('rocket', ASSETS.ROCKET);
   }, []);
 
-  // --- 2. INPUT HANDLERS (Directly modify refs) ---
+  // --- 2. INPUT HANDLERS (Refs = No Lag) ---
   useEffect(() => {
-    const handleDown = (e) => {
-      if (e.key === 'ArrowLeft') gameState.current.keys.left = true;
-      if (e.key === 'ArrowRight') gameState.current.keys.right = true;
+    const handleKey = (e, isDown) => {
+      if (e.key === 'ArrowLeft') gameState.current.keys.left = isDown;
+      if (e.key === 'ArrowRight') gameState.current.keys.right = isDown;
     };
-    const handleUp = (e) => {
-      if (e.key === 'ArrowLeft') gameState.current.keys.left = false;
-      if (e.key === 'ArrowRight') gameState.current.keys.right = false;
+    const down = (e) => handleKey(e, true);
+    const up = (e) => handleKey(e, false);
+    
+    // Touch Logic
+    const touchStart = (e) => {
+        const x = e.touches[0].clientX;
+        const w = window.innerWidth;
+        if(x < w/2) gameState.current.keys.left = true;
+        else gameState.current.keys.right = true;
     };
-    // Mobile Touch
-    const handleTouchStart = (e) => {
-      const x = e.touches[0].clientX;
-      if (x < window.innerWidth / 2) gameState.current.keys.left = true;
-      else gameState.current.keys.right = true;
-    };
-    const handleTouchEnd = () => {
-      gameState.current.keys.left = false;
-      gameState.current.keys.right = false;
+    const touchEnd = () => {
+        gameState.current.keys.left = false;
+        gameState.current.keys.right = false;
     };
 
-    window.addEventListener('keydown', handleDown);
-    window.addEventListener('keyup', handleUp);
-    window.addEventListener('touchstart', handleTouchStart);
-    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('touchstart', touchStart);
+    window.addEventListener('touchend', touchEnd);
 
     return () => {
-      window.removeEventListener('keydown', handleDown);
-      window.removeEventListener('keyup', handleUp);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('touchstart', touchStart);
+      window.removeEventListener('touchend', touchEnd);
     };
   }, []);
 
   // --- 3. GAME LOOP ---
   useEffect(() => {
-    if (loading) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animationId;
 
-    // Reset Game State on restart
+    // Reset Physics State
     gameState.current.active = true;
-    gameState.current.hero = { x: 200, y: 400, vx: 0, vy: 0, w: 40, h: 40 };
+    gameState.current.hero = { x: 185, y: 400, vx: 0, vy: 0, w: 30, h: 30 };
     gameState.current.cameraY = 0;
     gameState.current.platforms = [
-       { x: 150, y: 500, type: 'green', w: 80, h: 15, moving: false },
-       { x: 150, y: 350, type: 'green', w: 80, h: 15, moving: false }
+        { x: 160, y: 550, w: 80, h: 15, type: 'green' },
+        { x: 160, y: 400, w: 80, h: 15, type: 'green' }
     ];
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    let animationFrameId;
+    const GRAVITY = 0.45;
+    const JUMP = -11;
+    const SPEED = 6;
 
-    const GRAVITY = 0.4;
-    const JUMP_FORCE = -11;
-    const MOVE_SPEED = 6;
+    // --- HELPER: FAULT TOLERANT DRAW ---
+    const drawSprite = (spriteKey, x, y, w, h, fallbackColor) => {
+        const img = gameState.current.sprites[spriteKey];
+        if (img && img.complete && img.naturalWidth !== 0) {
+            ctx.drawImage(img, x, y, w, h);
+        } else {
+            // Fallback if image failed or loading
+            ctx.fillStyle = fallbackColor;
+            ctx.fillRect(x, y, w, h);
+            // Add border so it looks intentional
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, w, h);
+        }
+    };
 
     const loop = () => {
       const state = gameState.current;
-      const { hero, sprites, keys } = state;
-
-      // 1. CLEAR
-      ctx.fillStyle = "#111";
+      
+      // 1. CLEAR (Dark Grey Background)
+      ctx.fillStyle = "#1a1a1a";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // 2. LOGIC (Only if Playing)
+      // 2. LOGIC (Only when "isPlaying")
       if (isPlaying && state.active) {
-        // Horizontal Move
-        if (keys.left) hero.vx = -MOVE_SPEED;
-        else if (keys.right) hero.vx = MOVE_SPEED;
-        else hero.vx = 0;
+        // Move
+        if (state.keys.left) state.hero.vx = -SPEED;
+        else if (state.keys.right) state.hero.vx = SPEED;
+        else state.hero.vx = 0;
 
-        // Physics
-        hero.vy += GRAVITY;
-        hero.x += hero.vx;
-        hero.y += hero.vy;
+        state.hero.vy += GRAVITY;
+        state.hero.x += state.hero.vx;
+        state.hero.y += state.hero.vy;
 
         // Wrap
-        if (hero.x > canvas.width) hero.x = -hero.w;
-        if (hero.x < -hero.w) hero.x = canvas.width;
+        if (state.hero.x > canvas.width) state.hero.x = -state.hero.w;
+        if (state.hero.x < -state.hero.w) state.hero.x = canvas.width;
 
-        // Platforms Collision (Falling Only)
-        if (hero.vy > 0) {
-           state.platforms.forEach(p => {
-             if (!p.broken &&
-                 hero.x < p.x + p.w && hero.x + hero.w > p.x &&
-                 hero.y + hero.h > p.y && hero.y + hero.h < p.y + p.h + 20) {
-                   if (p.type === 'red') {
-                     p.broken = true;
-                     hero.vy = 0;
-                   } else if (p.hasRocket) {
-                     hero.vy = -30; // ZOOM
-                   } else {
-                     hero.vy = JUMP_FORCE;
-                   }
-             }
-           });
+        // Collision (Feet only)
+        if (state.hero.vy > 0) {
+            state.platforms.forEach(p => {
+                if (!p.broken &&
+                    state.hero.x + 20 > p.x && 
+                    state.hero.x + 10 < p.x + p.w &&
+                    state.hero.y + state.hero.h > p.y && 
+                    state.hero.y + state.hero.h < p.y + p.h + 20
+                ) {
+                    if (p.type === 'red') {
+                        p.broken = true;
+                        state.hero.vy = 0;
+                    } else if (p.hasRocket) {
+                        state.hero.vy = -35; // MOON
+                    } else {
+                        state.hero.vy = JUMP;
+                    }
+                }
+            });
         }
 
         // Camera
-        if (hero.y < state.cameraY + 300) {
-          state.cameraY = hero.y - 300;
-          setScore(Math.floor(Math.abs(state.cameraY)));
+        if (state.hero.y < state.cameraY + 300) {
+            state.cameraY = state.hero.y - 300;
+            setScore(Math.floor(Math.abs(state.cameraY)));
         }
 
-        // Generator (Infinite & Reachable)
-        // Sort by Y (lowest value is highest on screen)
+        // Generate
         state.platforms.sort((a,b) => a.y - b.y);
-        const highestY = state.platforms[0].y;
-        
-        if (highestY > state.cameraY - 800) {
-           const gap = Math.random() * 80 + 40; // 40-120px gap (Safe)
-           const newY = highestY - gap;
-           const newX = Math.random() * (canvas.width - 80);
-           const typeRand = Math.random();
-           
-           let type = 'green';
-           let moving = false;
-           if (typeRand > 0.8) { type = 'blue'; moving = true; }
-           
-           state.platforms.push({
-             x: newX, y: newY, w: 80, h: 15, 
-             type, moving, vx: moving ? 2 : 0, 
-             hasRocket: Math.random() > 0.95
-           });
+        const highest = state.platforms[0].y;
+        if (highest > state.cameraY - 700) {
+            const gap = Math.random() * 80 + 40; // 40-120px Gap
+            const typeR = Math.random();
+            let type = 'green';
+            if (typeR > 0.8) type = 'blue';
+            
+            state.platforms.push({
+                x: Math.random() * (canvas.width - 80),
+                y: highest - gap,
+                w: 80, h: 15,
+                type: type,
+                moving: type === 'blue',
+                vx: type === 'blue' ? 2 : 0,
+                hasRocket: Math.random() > 0.95
+            });
         }
         
-        // Remove old
+        // Cleanup
         state.platforms = state.platforms.filter(p => p.y < state.cameraY + canvas.height + 100);
 
-        // Death
-        if (hero.y > state.cameraY + canvas.height) {
-          state.active = false;
-          setGameOver(true);
-          if (username) supabase.from('leaderboards').insert([{ game_id: 'doodle', username, score: Math.floor(Math.abs(state.cameraY)) }]);
+        // Die
+        if (state.hero.y > state.cameraY + canvas.height) {
+            state.active = false;
+            setGameOver(true);
+            if (username) supabase.from('leaderboards').insert([{game_id:'doodle', username, score: Math.floor(Math.abs(state.cameraY))}]);
         }
       }
 
-      // 3. DRAW
+      // 3. DRAW (Always render, even if paused)
       ctx.save();
       ctx.translate(0, -state.cameraY);
 
       state.platforms.forEach(p => {
-        if (p.broken) return;
-        if (p.moving) {
-            if(isPlaying) p.x += p.vx;
-            if(p.x < 0 || p.x > canvas.width - p.w) p.vx *= -1;
-        }
-
-        let img = sprites.green;
-        if (p.type === 'red') img = sprites.red;
-        if (p.type === 'blue') img = sprites.blue;
-        
-        ctx.drawImage(img, p.x, p.y, p.w, p.h);
-        if (p.hasRocket) ctx.drawImage(sprites.rocket, p.x + 25, p.y - 30, 30, 30);
+          if (p.broken) return;
+          if (p.moving && isPlaying) {
+             p.x += p.vx;
+             if (p.x < 0 || p.x > canvas.width - p.w) p.vx *= -1;
+          }
+          
+          let color = '#00ff00';
+          if (p.type === 'red') color = 'red';
+          if (p.type === 'blue') color = 'cyan';
+          
+          drawSprite(p.type, p.x, p.y, p.w, p.h, color);
+          if (p.hasRocket) drawSprite('rocket', p.x + 20, p.y - 30, 30, 30, 'gold');
       });
 
-      // Draw Hero
-      ctx.drawImage(sprites.hero, hero.x, hero.y, hero.w, hero.h);
+      drawSprite('hero', state.hero.x, state.hero.y, state.hero.w, state.hero.h, 'white');
       ctx.restore();
 
-      animationFrameId = requestAnimationFrame(loop);
+      animationId = requestAnimationFrame(loop);
     };
 
     loop();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [loading, isPlaying, resetKey]);
+    return () => cancelAnimationFrame(animationId);
+  }, [isPlaying, resetKey]); // Only re-run if game status changes hard
 
-  // Countdown Logic
+  // Countdown
   useEffect(() => {
-    if (!gameOver && !loading) {
-      const t = setTimeout(() => setIsPlaying(true), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [loading, gameOver, resetKey]);
+    if (!gameOver) setTimeout(() => setIsPlaying(true), 3000);
+  }, [resetKey, gameOver]);
 
   const handleRestart = () => {
     setGameOver(false);
-    setIsPlaying(false);
+    setIsPlaying(false); // Triggers countdown
     setScore(0);
     setResetKey(prev => prev + 1);
   };
 
   return (
     <div className="game-wrapper">
-       <GameUI 
-         score={score} 
-         gameOver={gameOver} 
-         isPlaying={isPlaying} 
-         onRestart={handleRestart} 
-         onExit={onExit} 
-         gameId="doodle" 
-       />
-       {loading && <div style={{color:'white', fontSize:20}}>LOADING ASSETS...</div>}
-       <canvas ref={canvasRef} width={400} height={600} />
+        <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={handleRestart} onExit={onExit} gameId="doodle" />
+        <canvas ref={canvasRef} width={400} height={600} />
     </div>
   );
 };

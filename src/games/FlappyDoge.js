@@ -12,136 +12,118 @@ const FlappyDoge = ({ onExit }) => {
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-  const [loading, setLoading] = useState(true);
 
-  // --- GAME STATE REF ---
+  // Mutable State
   const gameState = useRef({
-      bird: { x: 50, y: 300, vy: 0 },
-      pipes: [],
-      sprites: {},
-      frame: 0
+    bird: { x: 50, y: 300, vy: 0 },
+    pipes: [],
+    sprites: {},
+    frame: 0
   });
 
-  // 1. Load Assets
+  // Asset Loader
   useEffect(() => {
-    const load = async () => {
-       const doge = new Image(); doge.src = ASSETS.DOGE_HERO;
-       const pipe = new Image(); pipe.src = ASSETS.RED_CANDLE;
-       await Promise.all([new Promise(r=>doge.onload=r), new Promise(r=>pipe.onload=r)]);
-       gameState.current.sprites = { doge, pipe };
-       setLoading(false);
+    const load = (k, src) => {
+        const img = new Image();
+        img.src = src;
+        img.crossOrigin = "Anonymous";
+        img.onload = () => gameState.current.sprites[k] = img;
     };
-    load();
+    load('doge', ASSETS.DOGE_HERO);
+    load('pipe', ASSETS.RED_CANDLE);
   }, []);
 
-  // 2. Game Loop
+  // Game Loop
   useEffect(() => {
-    if (loading) return;
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // Reset State
+    // Reset
     gameState.current.bird = { x: 50, y: 300, vy: 0 };
     gameState.current.pipes = [];
-    gameState.current.frame = 0;
-
+    
     let animId;
     const GRAVITY = 0.5;
 
+    // Helper Draw
+    const drawObj = (key, x, y, w, h, color) => {
+        const img = gameState.current.sprites[key];
+        if (img && img.complete && img.naturalWidth !== 0) ctx.drawImage(img, x, y, w, h);
+        else { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); }
+    };
+
     const loop = () => {
-      const state = gameState.current;
-      const { sprites, bird } = state;
+        const state = gameState.current;
+        
+        ctx.fillStyle = score > 10 ? "#000033" : "#f0f0f0";
+        ctx.fillRect(0,0, canvas.width, canvas.height);
 
-      ctx.clearRect(0,0, canvas.width, canvas.height);
-      
-      // Update Physics ONLY if playing
-      if (isPlaying && !gameOver) {
-          bird.vy += GRAVITY;
-          bird.y += bird.vy;
+        if (isPlaying && !gameOver) {
+            state.bird.vy += GRAVITY;
+            state.bird.y += state.bird.vy;
+            
+            if (state.frame % 100 === 0) {
+                const gap = 150;
+                const topH = Math.random() * (canvas.height - gap - 100) + 50;
+                state.pipes.push({ x: canvas.width, topH, gap });
+            }
 
-          if (state.frame % 100 === 0) {
-              const gap = 150; 
-              const topH = Math.random() * (canvas.height - gap - 100) + 50;
-              state.pipes.push({ x: canvas.width, topH, gap, passed: false });
-          }
+            state.pipes.forEach(p => {
+                p.x -= 3;
+                if (state.bird.x + 30 > p.x && state.bird.x < p.x + 50 &&
+                   (state.bird.y < p.topH || state.bird.y + 30 > p.topH + p.gap)) {
+                       setGameOver(true);
+                       if(username) supabase.from('leaderboards').insert([{game_id:'flappy', username, score}]);
+                   }
+                if (p.x + 50 < state.bird.x && !p.passed) {
+                    p.passed = true;
+                    setScore(s => s + 1);
+                }
+            });
 
-          state.pipes.forEach(p => {
-             p.x -= 3;
-             // Collision
-             if (bird.x + 30 > p.x && bird.x < p.x + 50 && 
-                (bird.y < p.topH || bird.y + 30 > p.topH + p.gap)) {
-                  handleGameOver(score);
-             }
-             // Score
-             if (p.x + 50 < bird.x && !p.passed) {
-                 p.passed = true;
-                 setScore(s => s + 1);
-             }
-          });
-          
-          if (bird.y > canvas.height || bird.y < 0) handleGameOver(score);
-          state.frame++;
-      }
+            if (state.bird.y > canvas.height || state.bird.y < 0) setGameOver(true);
+            state.frame++;
+        }
 
-      // Draw (Always)
-      ctx.fillStyle = score > 10 ? "#000033" : "#f0f0f0";
-      ctx.fillRect(0,0, canvas.width, canvas.height);
+        state.pipes.forEach(p => {
+            drawObj('pipe', p.x, 0, 50, p.topH, 'red');
+            drawObj('pipe', p.x, p.topH + p.gap, 50, canvas.height, 'red');
+        });
+        
+        drawObj('doge', state.bird.x, state.bird.y, 40, 40, 'orange');
 
-      state.pipes.forEach(p => {
-          ctx.drawImage(sprites.pipe, p.x, 0, 50, p.topH); // Top
-          ctx.drawImage(sprites.pipe, p.x, p.topH + p.gap, 50, canvas.height); // Bottom
-      });
-
-      ctx.drawImage(sprites.doge, bird.x, bird.y, 40, 40);
-      
-      if (!gameOver) animId = requestAnimationFrame(loop);
+        animId = requestAnimationFrame(loop);
     };
 
-    const handleGameOver = (s) => {
-        setGameOver(true);
-        if(username) supabase.from('leaderboards').insert([{game_id:'flappy', username, score: s}]);
-    };
-
-    loop();
-    return () => cancelAnimationFrame(animId);
-  }, [loading, isPlaying, resetKey]); 
-
-  // 3. Jump Handler (Uses Ref State directly)
-  useEffect(() => {
     const jump = (e) => {
-       if ((e.type === 'keydown' && e.code !== 'Space') && e.type !== 'touchstart' && e.type !== 'mousedown') return;
-       if (isPlaying && !gameOver) {
-           gameState.current.bird.vy = -8;
-       }
+        if (!isPlaying || gameOver) return;
+        if (e.type === 'keydown' || e.type === 'touchstart' || e.type === 'mousedown') {
+            gameState.current.bird.vy = -8;
+        }
     };
     window.addEventListener('keydown', jump);
-    window.addEventListener('mousedown', jump);
     window.addEventListener('touchstart', jump);
+    window.addEventListener('mousedown', jump);
+    
+    loop();
     return () => {
         window.removeEventListener('keydown', jump);
-        window.removeEventListener('mousedown', jump);
         window.removeEventListener('touchstart', jump);
+        window.removeEventListener('mousedown', jump);
+        cancelAnimationFrame(animId);
     };
-  }, [isPlaying, gameOver]);
+  }, [isPlaying, resetKey]);
 
-  // Sync Timer
   useEffect(() => {
-      if(!gameOver && !loading) setTimeout(() => setIsPlaying(true), 3000);
-  }, [resetKey, gameOver, loading]);
-
-  const handleRestart = () => {
-      setGameOver(false);
-      setIsPlaying(false);
-      setScore(0);
-      setResetKey(k => k + 1);
-  };
+    if(!gameOver) setTimeout(() => setIsPlaying(true), 3000);
+  }, [resetKey, gameOver]);
 
   return (
-      <div className="game-wrapper">
-         <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={handleRestart} onExit={onExit} gameId="flappy" />
-         {loading && <div>LOADING...</div>}
-         <canvas ref={canvasRef} width={400} height={600} />
-      </div>
+    <div className="game-wrapper">
+        <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setResetKey(k=>k+1); }} onExit={onExit} gameId="flappy" />
+        <canvas ref={canvasRef} width={400} height={600} />
+    </div>
   );
 };
 export default FlappyDoge;
