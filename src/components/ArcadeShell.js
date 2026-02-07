@@ -11,20 +11,52 @@ const ArcadeShell = ({ onSelectGame }) => {
       <div className="arcade-container">
         <h1 className="meme-text pulse">WHO ARE YOU?</h1>
         
-        <div style={{display:'flex', flexDirection:'column', gap: 15, marginBottom: 20}}>
-            <input 
-              className="meme-input"
-              value={inputName}
-              onChange={(e) => setInputName(e.target.value)}
-              placeholder="ENTER NAME (REQUIRED)"
-              maxLength={15}
-            />
-            <input 
-              className="meme-input"
-              value={inputAddr}
-              onChange={(e) => setInputAddr(e.target.value)}
-              placeholder="WALLET ADDRESS (OPTIONAL)"
-            />
+        <div style={{
+            display:'flex', 
+            flexDirection:'column', 
+            gap: 20, 
+            marginBottom: 30, 
+            width: '100%',
+            alignItems: 'center' // Ensures inputs stay centered
+        }}>
+            {/* NAME INPUT */}
+            <div className="input-group">
+                <label className="meme-label" style={{color: '#00ff00'}}>
+                    NAME <span style={{color: 'red'}}>*</span>
+                </label>
+                <input 
+                  className="meme-input"
+                  value={inputName}
+                  onChange={(e) => setInputName(e.target.value)}
+                  placeholder="CHAD_69"
+                  maxLength={15}
+                />
+            </div>
+
+            {/* ADDRESS INPUT WITH TOOLTIP */}
+            <div className="input-group">
+                <div style={{display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5}}>
+                    <label className="meme-label" style={{color: 'yellow', marginBottom: 0}}>
+                        WALLET (OPTIONAL)
+                    </label>
+                    
+                    {/* TOOLTIP CONTAINER */}
+                    <div className="tooltip-container">
+                        <span className="info-icon">?</span>
+                        <div className="tooltip-text">
+                            Playing games in the arcade makes you eligible to earn rewards. 
+                            In case you win a reward, it will be sent to the entered address.
+                        </div>
+                    </div>
+                </div>
+
+                <input 
+                  className="meme-input"
+                  value={inputAddr}
+                  onChange={(e) => setInputAddr(e.target.value)}
+                  placeholder="0x..."
+                />
+            </div>
         </div>
 
         <button 
@@ -44,10 +76,12 @@ const ArcadeShell = ({ onSelectGame }) => {
       <h1 className="meme-text">McPEPE ARCADE</h1>
       
       <div style={{marginBottom: 30, textAlign:'center'}}>
-          <h3 style={{color:'yellow', textShadow:'2px 2px black'}}>WELCOME, {username}</h3>
+          <h3 style={{color:'yellow', textShadow:'2px 2px black', fontFamily: '"Press Start 2P"'}}>
+            WELCOME, {username}
+          </h3>
           <button 
             className="btn-meme" 
-            style={{fontSize: '0.8rem', padding: '10px', background: '#333'}}
+            style={{fontSize: '0.8rem', padding: '10px', background: '#333', marginTop: 10}}
             onClick={clearUser}
           >
             CHANGE IDENTITY
