@@ -9,7 +9,6 @@ const ChadRun = ({ onExit }) => {
   const containerRef = useRef(null);
   const { username, address } = useContext(UserContext);
 
-  // --- REACT STATE ---
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -27,7 +26,8 @@ const ChadRun = ({ onExit }) => {
     groundY: 500,
     obstacles: [], 
     clouds: [],
-    sprites: {}
+    sprites: {},
+    lastTime: 0 // DELTA TIME TRACKER
   });
 
   const GRAVITY = 0.6;
@@ -61,6 +61,7 @@ const ChadRun = ({ onExit }) => {
             state.running = true;
             setIsPlaying(true);
             setShowTutorial(false);
+            state.lastTime = performance.now(); // Reset timer on start
         }
         if (!state.running) return;
 
@@ -96,17 +97,11 @@ const ChadRun = ({ onExit }) => {
 
     // --- SMART TOUCH HANDLER ---
     const wrapper = containerRef.current;
-    
     const onTouch = (e) => {
-        // FIX: Check if we touched a button or the UI menu. If so, DO NOT prevent default.
-        // This allows clicks to pass through to the Restart/Exit buttons.
-        if (e.target.closest('button') || e.target.closest('.btn-meme')) {
-            return; 
-        }
+        // ALLOW CLICKS ON BUTTONS / MENU
+        if (e.target.closest('button') || e.target.closest('.interactive')) return;
 
-        // Otherwise, prevent default to stop scrolling/zooming/double-tap logic
         if(e.cancelable) e.preventDefault(); 
-        
         const isDown = e.type === 'touchstart';
         
         for (let i = 0; i < e.changedTouches.length; i++) {
@@ -119,7 +114,6 @@ const ChadRun = ({ onExit }) => {
 
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
-    
     if (wrapper) {
         wrapper.addEventListener('touchstart', onTouch, { passive: false });
         wrapper.addEventListener('touchend', onTouch, { passive: false });
@@ -151,6 +145,7 @@ const ChadRun = ({ onExit }) => {
         engine.current.clouds = [];
         engine.current.frames = 0;
         engine.current.nextSpawnFrame = 30;
+        engine.current.lastTime = performance.now();
         setShowTutorial(true);
         spawnCloud(100); spawnCloud(300); spawnCloud(600);
     };
@@ -191,8 +186,14 @@ const ChadRun = ({ onExit }) => {
 
     resetGame();
     
-    const loop = () => {
+    const loop = (time) => {
         const state = engine.current;
+        
+        // --- DELTA TIME CALCULATION ---
+        // Normalized: 1.0 means running at 60fps. 0.5 means 120fps.
+        const dt = Math.min((time - state.lastTime) / 16.667, 2.0); 
+        state.lastTime = time;
+        
         const w = canvas.width;
         const h = canvas.height;
 
@@ -203,10 +204,13 @@ const ChadRun = ({ onExit }) => {
 
         if (state.running && !gameOver) {
             state.frames++;
+            
+            // APPLY DT TO PHYSICS
             let gravity = GRAVITY;
             if (state.hero.isDucking && !state.hero.isGrounded) gravity += FAST_DROP;
-            state.hero.vy += gravity;
-            state.hero.y += state.hero.vy;
+            
+            state.hero.vy += gravity * dt; // Gravity scales with time
+            state.hero.y += state.hero.vy * dt; // Velocity scales with time
 
             const currentH = state.hero.isDucking ? DUCK_H : STAND_H;
             if (state.hero.y + currentH >= state.groundY) {
@@ -218,8 +222,9 @@ const ChadRun = ({ onExit }) => {
             const targetSpeed = BASE_SPEED + (state.score * 0.3);
             state.speed = Math.min(MAX_SPEED, targetSpeed);
 
+            // OBSTACLES (Move with Speed * DT)
             state.obstacles.forEach(ob => {
-                ob.x -= state.speed;
+                ob.x -= state.speed * dt;
                 const heroHitbox = { x: state.hero.x + 12, y: state.hero.y + 5, w: 16, h: currentH - 10 };
                 const obHitbox = { x: ob.x + 5, y: ob.y + 5, w: ob.w - 10, h: ob.h - 10 };
                 
@@ -234,8 +239,12 @@ const ChadRun = ({ onExit }) => {
                 }
             });
             state.obstacles = state.obstacles.filter(ob => ob.x > -100);
+            
+            // SPAWNING (Approximate frames via accumulator or just randomness)
+            // Note: Frames are less reliable with DT, but good enough for simple spawning
             if (state.frames >= state.nextSpawnFrame) spawnObstacle();
-            state.clouds.forEach(c => c.x -= c.speed * 0.5);
+            
+            state.clouds.forEach(c => c.x -= (c.speed * 0.5) * dt);
             state.clouds = state.clouds.filter(c => c.x > -100);
             if (state.frames % 120 === 0) spawnCloud();
         }
@@ -263,12 +272,12 @@ const ChadRun = ({ onExit }) => {
         if(username) await supabase.from('leaderboards').insert([{ game_id: 'chadrun', username, score: engine.current.score, address }]);
     };
 
-    loop();
+    loop(performance.now());
     return () => cancelAnimationFrame(animationId);
   }, [resetKey]);
 
   useEffect(() => {
-    if(!gameOver) setTimeout(() => { setIsPlaying(true); engine.current.running = true; }, 1500);
+    if(!gameOver) setTimeout(() => { setIsPlaying(true); engine.current.running = true; engine.current.lastTime = performance.now(); }, 1500);
   }, [resetKey, gameOver]);
 
   return (

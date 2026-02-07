@@ -4,7 +4,7 @@ import ArcadeShell from './components/ArcadeShell';
 import FlappyDoge from './games/FlappyDoge';
 import PepeFrogger from './games/PepeFrogger';
 import StonksJump from './games/StonksJump';
-import ChadRun from './games/ChadRun'; // CHANGED
+import ChadRun from './games/ChadRun';
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
@@ -14,7 +14,7 @@ function App() {
       case 'flappy': return <FlappyDoge onExit={() => setActiveGame(null)} />;
       case 'frogger': return <PepeFrogger onExit={() => setActiveGame(null)} />;
       case 'doodle': return <StonksJump onExit={() => setActiveGame(null)} />;
-      case 'chadrun': return <ChadRun onExit={() => setActiveGame(null)} />; // CHANGED
+      case 'chadrun': return <ChadRun onExit={() => setActiveGame(null)} />;
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };

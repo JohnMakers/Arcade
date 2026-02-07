@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
-/* GLOBAL SCROLL LOCK */
-html, body, #root {
+/* GLOBAL SCROLL & ZOOM LOCK */
+html, body, #root, .App {
   margin: 0;
   padding: 0;
   height: 100%;
@@ -13,12 +13,12 @@ html, body, #root {
   font-family: 'Press Start 2P', cursive;
   user-select: none;
   -webkit-user-select: none;
-}
-
-body {
+  
+  /* CRITICAL FOR CENTERING: */
   display: flex;
   justify-content: center;
   align-items: center;
+  flex-direction: column;
 }
 
 /* --- SHARED CONTAINER STYLES --- */
@@ -26,8 +26,8 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  justify-content: center; /* Centers content vertically */
+  align-items: center;     /* Centers content horizontally */
   background: #000;
   
   box-shadow: 0 0 20px rgba(0, 255, 0, 0.2), inset 0 0 40px rgba(0, 255, 0, 0.1);
@@ -36,7 +36,7 @@ body {
 
   height: 90vh;
   width: 90vh;
-  min-width: 400px;
+  min-width: 350px;
   max-width: 95vw;
   max-height: 95vh;
   aspect-ratio: auto;
@@ -64,7 +64,7 @@ canvas {
   touch-action: none;
 }
 
-/* --- UI OVERLAYS --- */
+/* --- UI LAYERS --- */
 .overlay-layer {
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
@@ -77,7 +77,7 @@ canvas {
 }
 
 .overlay-layer.interactive {
-  pointer-events: all;
+  pointer-events: auto; /* ALLOW CLICKING */
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(4px);
   border-radius: 4px;
@@ -123,19 +123,12 @@ canvas {
   box-shadow: 6px 6px 0px #ff00ff;
   transition: transform 0.1s;
   
-  /* CRITICAL FOR MOBILE TOUCH */
   touch-action: manipulation; 
-  pointer-events: all; 
+  pointer-events: auto; /* Ensure clickable */
 }
 
-.btn-meme:hover {
-  transform: scale(1.05);
-}
-
-.btn-meme:active {
-  transform: translate(2px, 2px);
-  box-shadow: 3px 3px 0px #ff00ff;
-}
+.btn-meme:hover { transform: scale(1.05); }
+.btn-meme:active { transform: translate(2px, 2px); box-shadow: 3px 3px 0px #ff00ff; }
 
 .meme-input {
   font-family: 'Press Start 2P', cursive;
@@ -145,16 +138,12 @@ canvas {
   padding: 15px;
   text-align: center;
   font-size: 1.2rem;
-  width: 80%;
+  width: 100%; /* Full width of parent */
   max-width: 400px;
   outline: none;
   box-shadow: 4px 4px 0px #ff00ff;
-  margin-bottom: 10px;
 }
-.meme-input:focus {
-  border-color: #ff00ff;
-  box-shadow: 4px 4px 0px #00ff00;
-}
+.meme-input:focus { border-color: #ff00ff; box-shadow: 4px 4px 0px #00ff00; }
 
 .meme-text {
     color: #00ff00;
@@ -165,9 +154,7 @@ canvas {
     line-height: 1.5;
 }
 
-.pulse {
-    animation: pulse 1.5s infinite;
-}
+.pulse { animation: pulse 1.5s infinite; }
 @keyframes pulse {
     0% { opacity: 1; text-shadow: 0 0 10px #00ff00; }
     50% { opacity: 0.7; text-shadow: 0 0 20px #00ff00; }
@@ -179,8 +166,10 @@ canvas {
     grid-template-columns: 1fr 1fr;
     gap: 15px;
     width: 100%;
+    justify-items: center; /* Center buttons in grid */
 }
 
+/* --- MOBILE ADAPTABILITY --- */
 @media (max-width: 768px) {
   .game-wrapper {
     width: 100vw !important;
@@ -194,15 +183,23 @@ canvas {
     height: 100vh;
     border: none;
     border-radius: 0;
-    justify-content: flex-start;
-    padding-top: 50px;
+    justify-content: center; /* Center vertically on mobile too */
+    padding: 20px;
+    box-sizing: border-box;
   }
-  .game-grid { grid-template-columns: 1fr; }
-  .btn-meme { padding: 15px; font-size: 0.9rem; width: 90%; margin: 5px auto; }
+  .game-grid { grid-template-columns: 1fr; width: 100%; }
+  .btn-meme { padding: 15px; font-size: 0.9rem; width: 100%; margin: 10px 0; }
   .meme-text { font-size: 1.5rem; }
 }
 
-.input-group { display: flex; flex-direction: column; alignItems: center; width: 100%; }
+/* --- FORM & TOOLTIPS --- */
+.input-group { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    width: 100%; 
+    max-width: 400px; /* Constrain width */
+}
 .meme-label { font-family: 'Press Start 2P'; font-size: 0.8rem; margin-bottom: 8px; text-shadow: 2px 2px 0 #000; }
 
 .tooltip-container { position: relative; display: inline-block; cursor: help; }

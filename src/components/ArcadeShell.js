@@ -17,7 +17,8 @@ const ArcadeShell = ({ onSelectGame }) => {
             gap: 20, 
             marginBottom: 30, 
             width: '100%',
-            alignItems: 'center' // Ensures inputs stay centered
+            alignItems: 'center', /* CRITICAL FOR CENTERING INPUTS */
+            justifyContent: 'center'
         }}>
             {/* NAME INPUT */}
             <div className="input-group">
@@ -33,14 +34,12 @@ const ArcadeShell = ({ onSelectGame }) => {
                 />
             </div>
 
-            {/* ADDRESS INPUT WITH TOOLTIP */}
+            {/* ADDRESS INPUT */}
             <div className="input-group">
-                <div style={{display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5, justifyContent: 'center'}}>
                     <label className="meme-label" style={{color: 'yellow', marginBottom: 0}}>
                         WALLET (OPTIONAL)
                     </label>
-                    
-                    {/* TOOLTIP CONTAINER */}
                     <div className="tooltip-container">
                         <span className="info-icon">?</span>
                         <div className="tooltip-text">

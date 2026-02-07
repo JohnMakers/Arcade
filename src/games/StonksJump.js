@@ -6,7 +6,7 @@ import GameUI from '../components/GameUI';
 
 const StonksJump = ({ onExit }) => {
   const canvasRef = useRef(null);
-  const containerRef = useRef(null); // Added container ref for listeners
+  const containerRef = useRef(null);
   const { username, address } = useContext(UserContext);
 
   const [score, setScore] = useState(0);
@@ -19,9 +19,10 @@ const StonksJump = ({ onExit }) => {
     cameraY: 0,
     platforms: [],
     keys: { left: false, right: false },
-    touchX: null, // New: Tracks finger position
+    touchX: null,
     active: true,
-    sprites: {} 
+    sprites: {},
+    lastTime: 0
   });
 
   useEffect(() => {
@@ -47,32 +48,30 @@ const StonksJump = ({ onExit }) => {
     const down = (e) => handleKey(e, true);
     const up = (e) => handleKey(e, false);
     
-    // --- TOUCH LOGIC (SWIPE/DRAG) ---
     const wrapper = containerRef.current;
     
     const handleTouch = (e) => {
-        if (e.cancelable) e.preventDefault(); // Stop Scroll
+        // ALLOW CLICK
+        if (e.target.closest('button') || e.target.closest('.interactive')) return;
+
+        if (e.cancelable) e.preventDefault(); 
         
         const touch = e.touches[0];
         if (touch) {
-            // Get touch position relative to screen width
             const rect = wrapper.getBoundingClientRect();
-            // Calculate relative X inside the container (0 to 400 scaled)
             const relativeX = touch.clientX - rect.left;
-            const scaleX = 400 / rect.width; // Game Width is 400
-            
+            const scaleX = 400 / rect.width; 
             gameState.current.touchX = relativeX * scaleX;
         }
     };
 
     const handleTouchEnd = (e) => {
         if (e.cancelable) e.preventDefault();
-        gameState.current.touchX = null; // Stop moving if let go
+        gameState.current.touchX = null;
     };
 
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
-    
     if (wrapper) {
         wrapper.addEventListener('touchstart', handleTouch, { passive: false });
         wrapper.addEventListener('touchmove', handleTouch, { passive: false });
@@ -103,6 +102,7 @@ const StonksJump = ({ onExit }) => {
         { x: 160, y: 550, w: 80, h: 15, type: 'green' },
         { x: 160, y: 400, w: 80, h: 15, type: 'green' }
     ];
+    gameState.current.lastTime = performance.now();
 
     const GRAVITY = 0.45;
     const JUMP = -11;
@@ -121,15 +121,17 @@ const StonksJump = ({ onExit }) => {
         }
     };
 
-    const loop = () => {
+    const loop = (time) => {
       const state = gameState.current;
+      const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
+      state.lastTime = time;
+
       ctx.fillStyle = "#1a1a1a";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (isPlaying && state.active) {
-        // MOVEMENT LOGIC: Keyboard OR Touch
+        // MOVEMENT LOGIC
         if (state.touchX !== null) {
-            // Smoothly move towards finger
             const diff = state.touchX - (state.hero.x + state.hero.w/2);
             if (Math.abs(diff) > 5) {
                 state.hero.vx = diff > 0 ? SPEED : -SPEED;
@@ -142,9 +144,9 @@ const StonksJump = ({ onExit }) => {
             else state.hero.vx = 0;
         }
 
-        state.hero.vy += GRAVITY;
-        state.hero.x += state.hero.vx;
-        state.hero.y += state.hero.vy;
+        state.hero.vy += GRAVITY * dt;
+        state.hero.x += state.hero.vx * dt;
+        state.hero.y += state.hero.vy * dt;
 
         if (state.hero.x > canvas.width) state.hero.x = -state.hero.w;
         if (state.hero.x < -state.hero.w) state.hero.x = canvas.width;
@@ -208,7 +210,7 @@ const StonksJump = ({ onExit }) => {
       state.platforms.forEach(p => {
           if (p.broken) return;
           if (p.moving && isPlaying) {
-             p.x += p.vx;
+             p.x += p.vx * dt;
              if (p.x < 0 || p.x > canvas.width - p.w) p.vx *= -1;
           }
           let color = '#00ff00';
@@ -224,12 +226,12 @@ const StonksJump = ({ onExit }) => {
       animationId = requestAnimationFrame(loop);
     };
 
-    loop();
+    loop(performance.now());
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying, resetKey]); 
 
   useEffect(() => {
-    if (!gameOver) setTimeout(() => setIsPlaying(true), 3000);
+    if (!gameOver) setTimeout(() => { setIsPlaying(true); gameState.current.lastTime = performance.now(); }, 3000);
   }, [resetKey, gameOver]);
 
   return (

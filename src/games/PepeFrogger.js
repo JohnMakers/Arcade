@@ -34,7 +34,8 @@ const PepeFrogger = ({ onExit }) => {
     lanes: [], 
     lastLaneType: 'grass',
     particles: [],
-    sprites: {}
+    sprites: {},
+    lastTime: 0
   });
 
   useEffect(() => {
@@ -53,11 +54,13 @@ const PepeFrogger = ({ onExit }) => {
     load('shield', ASSETS.TENDIE_SHIELD);
   }, []);
 
-  // --- INPUT HANDLER FIXED ---
   useEffect(() => {
     if(containerRef.current) containerRef.current.focus();
 
     const handleInput = (e) => {
+        // ALLOW CLICKS
+        if (e.target && (e.target.closest('button') || e.target.closest('.interactive'))) return;
+
         if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," ","w","a","s","d"].includes(e.key)) {
             e.preventDefault();
         }
@@ -66,6 +69,7 @@ const PepeFrogger = ({ onExit }) => {
         if (!state.running && !gameOver) {
             state.running = true;
             setIsPlaying(true);
+            state.lastTime = performance.now();
         }
 
         if (!state.running || state.hero.isMoving) return;
@@ -109,23 +113,24 @@ const PepeFrogger = ({ onExit }) => {
 
     window.addEventListener('keydown', handleInput, { capture: true });
     
-    // Touch Logic
     const wrapper = containerRef.current;
     let touchStartX = 0;
     let touchStartY = 0;
 
     const onTouchStart = (e) => {
+        if (e.target.closest('button') || e.target.closest('.interactive')) return;
         if(e.cancelable) e.preventDefault();
         touchStartX = e.changedTouches[0].screenX;
         touchStartY = e.changedTouches[0].screenY;
     };
     
-    // PREVENT SCROLLING WHILE SWIPING
     const onTouchMove = (e) => {
+        if (e.target.closest('button')) return;
         if(e.cancelable) e.preventDefault();
     };
 
     const onTouchEnd = (e) => {
+        if (e.target.closest('button')) return;
         if(e.cancelable) e.preventDefault();
         const diffX = e.changedTouches[0].screenX - touchStartX;
         const diffY = e.changedTouches[0].screenY - touchStartY;
@@ -152,11 +157,7 @@ const PepeFrogger = ({ onExit }) => {
     };
   }, [gameOver]);
 
-  // [Include generateLane, createParticles, and Game Loop here exactly as before]
-  // ... (Omitting full loop code for brevity as logic didn't change, only Input) ...
-  // But since I must provide full replacement or specific changes:
-  
-  // Re-inserting required helpers and loop for a Copy-Pasteable file
+  // Helpers
   const generateLane = (gridY, difficulty, forceSafe = false) => {
       let biome = 'suburbs';
       if (gridY < -20) biome = 'city';
@@ -214,40 +215,50 @@ const PepeFrogger = ({ onExit }) => {
         engine.current.shield = false;
         engine.current.lanes = [];
         engine.current.lastLaneType = 'grass';
+        engine.current.lastTime = performance.now();
         for (let i=0; i<20; i++) { engine.current.lanes.push(generateLane(15 - i, 0, i < 5)); }
     };
     resetGame();
 
-    const loop = () => {
+    const loop = (time) => {
         const state = engine.current;
+        const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
+        state.lastTime = time;
+
         const w = canvas.width;
         const h = canvas.height;
 
         if (state.running && !gameOver) {
             state.frames++;
-            if (state.dashCooldown > 0) { state.dashCooldown--; if (state.dashCooldown === 0) setDashReady(true); }
+            if (state.dashCooldown > 0) { state.dashCooldown -= 1 * dt; if (state.dashCooldown <= 0) setDashReady(true); }
 
             if (state.hero.isMoving) {
-                state.hero.x += (state.hero.targetX - state.hero.x) * 0.4;
-                state.hero.y += (state.hero.targetY - state.hero.y) * 0.4;
+                // Lerp is tricky with DT, but simple multiplier is fine for short distances
+                const lerpSpeed = 0.4 * dt; 
+                state.hero.x += (state.hero.targetX - state.hero.x) * lerpSpeed;
+                state.hero.y += (state.hero.targetY - state.hero.y) * lerpSpeed;
+                
                 if (Math.abs(state.hero.x - state.hero.targetX) < 1 && Math.abs(state.hero.y - state.hero.targetY) < 1) {
                     state.hero.x = state.hero.targetX; state.hero.y = state.hero.targetY; state.hero.isMoving = false;
                 }
             }
 
-            if (state.score > 100) { state.autoScrollY -= (0.5 + (state.score * 0.001)); }
+            if (state.score > 100) { state.autoScrollY -= (0.5 + (state.score * 0.001)) * dt; }
+            
             const heroCam = (state.hero.gridY * GRID_SIZE) - 400;
             const targetCam = Math.min(heroCam, state.autoScrollY);
-            state.cameraY += (targetCam - state.cameraY) * 0.1;
+            state.cameraY += (targetCam - state.cameraY) * 0.1 * dt;
 
             state.lanes.forEach(lane => {
                 lane.elements.forEach(el => {
                     if (!el.isPowerup) {
-                        el.x += lane.speed;
+                        el.x += lane.speed * dt;
                         if (lane.speed > 0 && el.x > w) el.x = -el.w;
                         if (lane.speed < 0 && el.x < -el.w) el.x = w;
                     }
                 });
+                
+                // Collision Logic (unchanged, just position updates)
                 if (lane.gridY === state.hero.gridY && !state.hero.isMoving) {
                     let onLog = false;
                     lane.elements.forEach(el => {
@@ -257,7 +268,7 @@ const PepeFrogger = ({ onExit }) => {
                                 if (el.type === 'shield') { setHasShield(true); state.shield = true; }
                                 el.x = -9999; 
                             } else if (lane.type === 'water') {
-                                onLog = true; state.hero.x += lane.speed; state.hero.targetX = state.hero.x; 
+                                onLog = true; state.hero.x += lane.speed * dt; state.hero.targetX = state.hero.x; 
                             } else { hitObstacle(); }
                         }
                     });
@@ -302,7 +313,13 @@ const PepeFrogger = ({ onExit }) => {
         if (pepe) ctx.drawImage(pepe, state.hero.x, state.hero.y, 35, 35);
         else { ctx.fillStyle = 'lime'; ctx.fillRect(state.hero.x, state.hero.y, 35, 35); }
 
-        state.particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4); });
+        state.particles.forEach(p => { 
+            p.x += p.vx * dt; 
+            p.y += p.vy * dt; 
+            p.life -= 1 * dt; 
+            ctx.fillStyle = p.color; 
+            ctx.fillRect(p.x, p.y, 4, 4); 
+        });
         state.particles = state.particles.filter(p => p.life > 0);
         ctx.restore();
         animationId = requestAnimationFrame(loop);
@@ -318,11 +335,11 @@ const PepeFrogger = ({ onExit }) => {
         if(username) supabase.from('leaderboards').insert([{game_id:'frogger', username, score: engine.current.score, address: address}]);
     };
 
-    loop();
+    loop(performance.now());
     return () => cancelAnimationFrame(animationId);
   }, [resetKey]);
 
-  useEffect(() => { if(!gameOver) setTimeout(() => { setIsPlaying(true); engine.current.running = true; }, 3000); }, [resetKey, gameOver]);
+  useEffect(() => { if(!gameOver) setTimeout(() => { setIsPlaying(true); engine.current.running = true; engine.current.lastTime = performance.now(); }, 3000); }, [resetKey, gameOver]);
 
   return (
     <div ref={containerRef} className="game-wrapper" tabIndex="0" style={{outline: '4px solid #00ff00'}} onClick={() => containerRef.current.focus()}>

@@ -6,7 +6,7 @@ import GameUI from '../components/GameUI';
 
 const FlappyDoge = ({ onExit }) => {
   const canvasRef = useRef(null);
-  const containerRef = useRef(null); // Wrapper for events
+  const containerRef = useRef(null);
   const { username, address } = useContext(UserContext);
 
   const [score, setScore] = useState(0);
@@ -22,7 +22,8 @@ const FlappyDoge = ({ onExit }) => {
     frame: 0,
     score: 0,
     speed: 3.5,
-    isDead: false
+    isDead: false,
+    lastTime: 0
   });
 
   useEffect(() => {
@@ -36,12 +37,12 @@ const FlappyDoge = ({ onExit }) => {
     load('pipe', ASSETS.RED_CANDLE);
   }, []);
 
-  // --- INPUT HANDLER FIXED ---
   useEffect(() => {
     const handleInput = (e) => {
-      // Prevent browser default scroll
-      if (e.cancelable && e.type !== 'keydown') e.preventDefault();
+      // ALLOW CLICKING MENUS
+      if (e.target.closest('button') || e.target.closest('.interactive')) return;
       
+      if (e.cancelable && e.type !== 'keydown') e.preventDefault();
       if (e.type === 'keydown' && e.code !== 'Space' && e.code !== 'ArrowUp') return;
       if (e.type === 'keydown') e.preventDefault();
 
@@ -52,14 +53,11 @@ const FlappyDoge = ({ onExit }) => {
     };
 
     const wrapper = containerRef.current;
-
     window.addEventListener('keydown', handleInput);
-    // Bind to wrapper with passive: false
     if(wrapper) {
         wrapper.addEventListener('mousedown', handleInput);
         wrapper.addEventListener('touchstart', handleInput, { passive: false });
     }
-
     return () => {
       window.removeEventListener('keydown', handleInput);
       if(wrapper) {
@@ -69,7 +67,6 @@ const FlappyDoge = ({ onExit }) => {
     };
   }, [gameOver]); 
 
-  // --- GAME LOOP ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -83,12 +80,16 @@ const FlappyDoge = ({ onExit }) => {
     engine.current.bird = { x: 50, y: 300, vy: 0, w: 40, h: 40 };
     engine.current.pipes = [];
     engine.current.frame = 0;
+    engine.current.lastTime = performance.now();
 
     const GRAVITY = 0.5;
     const MAX_SPEED = 7.0;
 
-    const loop = () => {
+    const loop = (time) => {
       const state = engine.current;
+      const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
+      state.lastTime = time;
+
       const bgLevel = Math.min(1, state.score / 50);
       const r = Math.floor(240 * (1 - bgLevel)); 
       const g = Math.floor(240 * (1 - bgLevel)); 
@@ -101,8 +102,9 @@ const FlappyDoge = ({ onExit }) => {
            const targetSpeed = 3.5 + (state.score * 0.1); 
            state.speed = Math.min(MAX_SPEED, targetSpeed);
         }
-        state.bird.vy += GRAVITY;
-        state.bird.y += state.bird.vy;
+        
+        state.bird.vy += GRAVITY * dt;
+        state.bird.y += state.bird.vy * dt;
 
         const spawnRate = Math.floor(180 / (state.speed / 3)); 
         if (state.frame % spawnRate === 0) {
@@ -114,7 +116,7 @@ const FlappyDoge = ({ onExit }) => {
         }
 
         state.pipes.forEach(p => {
-            p.x -= state.speed;
+            p.x -= state.speed * dt;
             const birdHitbox = { x: state.bird.x + 5, y: state.bird.y + 5, w: state.bird.w - 10, h: state.bird.h - 10 };
             const hitTop = birdHitbox.y < p.topH;
             const hitBot = birdHitbox.y + birdHitbox.h > p.topH + p.gap;
@@ -152,13 +154,13 @@ const FlappyDoge = ({ onExit }) => {
         if (username) supabase.from('leaderboards').insert([{ game_id: 'flappy', username, score: engine.current.score, address: address }]).then();
     };
 
-    loop();
+    loop(performance.now());
     return () => cancelAnimationFrame(animationId);
   }, [resetKey]);
 
   useEffect(() => {
     if (!gameOver) {
-      const t = setTimeout(() => { setIsPlaying(true); engine.current.running = true; }, 3000);
+      const t = setTimeout(() => { setIsPlaying(true); engine.current.running = true; engine.current.lastTime = performance.now(); }, 3000);
       return () => clearTimeout(t);
     }
   }, [resetKey, gameOver]);
