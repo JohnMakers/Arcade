@@ -30,7 +30,6 @@ const ChadRun = ({ onExit }) => {
     sprites: {}
   });
 
-  // Constants
   const GRAVITY = 0.6;
   const JUMP_FORCE = -13; 
   const JUMP_CUTOFF = -5; 
@@ -52,7 +51,7 @@ const ChadRun = ({ onExit }) => {
     load('bird', ASSETS.OBSTACLE_BIRD);
   }, []);
 
-  // --- INPUT HANDLER (MOBILE OPTIMIZED) ---
+  // --- INPUT HANDLER ---
   useEffect(() => {
     if(containerRef.current) containerRef.current.focus();
 
@@ -65,7 +64,6 @@ const ChadRun = ({ onExit }) => {
         }
         if (!state.running) return;
 
-        // JUMP
         if (action === 'JUMP') {
             if (isDown) {
                 if (state.hero.isGrounded) {
@@ -80,7 +78,6 @@ const ChadRun = ({ onExit }) => {
             }
         }
 
-        // DUCK
         if (action === 'DUCK') {
             const wasDucking = state.hero.isDucking;
             state.hero.isDucking = isDown;
@@ -97,18 +94,24 @@ const ChadRun = ({ onExit }) => {
         if (e.key === 'ArrowDown' || e.key === 's') handleAction('DUCK', isDown);
     };
 
-    // --- TOUCH HANDLERS (PASSIVE: FALSE) ---
+    // --- SMART TOUCH HANDLER ---
     const wrapper = containerRef.current;
     
     const onTouch = (e) => {
-        if(e.cancelable) e.preventDefault(); // STOP SCREEN ACCELERATION/SCROLL
+        // FIX: Check if we touched a button or the UI menu. If so, DO NOT prevent default.
+        // This allows clicks to pass through to the Restart/Exit buttons.
+        if (e.target.closest('button') || e.target.closest('.btn-meme')) {
+            return; 
+        }
+
+        // Otherwise, prevent default to stop scrolling/zooming/double-tap logic
+        if(e.cancelable) e.preventDefault(); 
+        
         const isDown = e.type === 'touchstart';
         
-        // Multi-touch support
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
             const halfWidth = window.innerWidth / 2;
-            // Left Side = Duck, Right Side = Jump
             const action = t.clientX < halfWidth ? 'DUCK' : 'JUMP';
             handleAction(action, isDown);
         }
@@ -117,7 +120,6 @@ const ChadRun = ({ onExit }) => {
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
     
-    // Attach passive: false listeners manually for Mobile
     if (wrapper) {
         wrapper.addEventListener('touchstart', onTouch, { passive: false });
         wrapper.addEventListener('touchend', onTouch, { passive: false });
@@ -133,7 +135,7 @@ const ChadRun = ({ onExit }) => {
     };
   }, [gameOver]);
 
-  // --- GAME LOOP (Same as before) ---
+  // --- GAME LOOP ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -194,7 +196,6 @@ const ChadRun = ({ onExit }) => {
         const w = canvas.width;
         const h = canvas.height;
 
-        // Draw BG
         ctx.fillStyle = "#222";
         ctx.fillRect(0, 0, w, h);
         ctx.fillStyle = "#fff"; 
@@ -239,18 +240,15 @@ const ChadRun = ({ onExit }) => {
             if (state.frames % 120 === 0) spawnCloud();
         }
 
-        // Draw Clouds
         ctx.fillStyle = '#444';
         state.clouds.forEach(c => ctx.fillRect(c.x, c.y, c.w, 20));
 
-        // Draw Obstacles
         state.obstacles.forEach(ob => {
             const img = state.sprites[ob.type];
             if (img) ctx.drawImage(img, ob.x, ob.y, ob.w, ob.h);
             else { ctx.fillStyle = ob.type === 'bird' ? 'red' : 'green'; ctx.fillRect(ob.x, ob.y, ob.w, ob.h); }
         });
 
-        // Draw Hero
         const currentH = state.hero.isDucking ? DUCK_H : STAND_H;
         const imgChad = state.sprites['chad'];
         if (imgChad) ctx.drawImage(imgChad, state.hero.x, state.hero.y, 40, currentH);
@@ -277,7 +275,6 @@ const ChadRun = ({ onExit }) => {
     <div ref={containerRef} className="game-wrapper" tabIndex="0" onClick={() => containerRef.current.focus()}>
         <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setResetKey(k=>k+1); }} onExit={onExit} gameId="chadrun" />
         
-        {/* MOBILE CONTROLS OVERLAY */}
         {showTutorial && isPlaying && !gameOver && (
             <div style={{
                 position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -288,14 +285,6 @@ const ChadRun = ({ onExit }) => {
             </div>
         )}
         
-        {/* INVISIBLE TOUCH ZONES VISUALIZED FOR DEBUG (Optional, remove opacity to hide) */}
-        {isPlaying && !gameOver && (
-            <div style={{position: 'absolute', inset: 0, display: 'flex', pointerEvents: 'none'}}>
-                <div style={{flex: 1, borderRight: '1px dashed rgba(255,255,255,0.1)'}}></div>
-                <div style={{flex: 1}}></div>
-            </div>
-        )}
-
         <canvas ref={canvasRef} width={800} height={600} />
     </div>
   );
