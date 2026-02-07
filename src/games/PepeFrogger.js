@@ -6,21 +6,26 @@ import GameUI from '../components/GameUI';
 
 const PepeFrogger = ({ onExit }) => {
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
   const { username } = useContext(UserContext);
 
   // --- REACT UI STATE ---
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false); // Controls the "Get Ready" overlay
   const [resetKey, setResetKey] = useState(0);
+  
   // Mechanics UI
   const [multiplier, setMultiplier] = useState(1);
   const [hasShield, setHasShield] = useState(false);
   const [dashReady, setDashReady] = useState(true);
 
-  // --- ENGINE REF (The Source of Truth) ---
+  const GRID_SIZE = 40;
+  const COLS = 10;
+
+  // --- ENGINE REF ---
   const engine = useRef({
-    running: false,
+    running: false, // Physics loop active?
     frames: 0,
     cameraY: 0,
     score: 0,
@@ -31,26 +36,21 @@ const PepeFrogger = ({ onExit }) => {
     dashCooldown: 0,
     shield: false,
     
-    // Entities
+    // Entities - SPAWN AT GRID 13 (Visible!)
     hero: { 
-        gridX: 5, gridY: 15, // Grid Coordinates (Cols 0-9)
-        x: 200, y: 600,      // Pixel Coordinates (Visual)
-        targetX: 200, targetY: 600, // Where we are moving to
-        isMoving: false
+        gridX: 4, gridY: 13, 
+        x: 4 * 40, y: 13 * 40, 
+        targetX: 4 * 40, targetY: 13 * 40, 
+        isMoving: false 
     },
-    lanes: [], // { gridY, type, speed, elements: [] }
-    particles: [], // { x, y, vx, vy, life, color }
+    lanes: [],
+    particles: [],
     
-    // Assets
     sprites: {},
-    patterns: {}
+    keys: { up: false, down: false, left: false, right: false }
   });
 
-  const GRID_SIZE = 40;
-  const COLS = 10;
-  const CANVAS_WIDTH = 400;
-
-  // --- 1. ROBUST ASSET LOADER ---
+  // --- 1. ASSET LOADER ---
   useEffect(() => {
     const load = (k, src) => {
         const img = new Image();
@@ -70,53 +70,65 @@ const PepeFrogger = ({ onExit }) => {
     load('tex_water', ASSETS.TEXTURE_WATER);
   }, []);
 
-  // --- 2. INPUT HANDLER (Capture Mode) ---
+  // --- 2. INPUT HANDLER (Instant Start) ---
   useEffect(() => {
+    // Force focus
+    if(containerRef.current) containerRef.current.focus();
+
     const handleInput = (e) => {
-        // Prevent scrolling
-        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.code)) e.preventDefault();
+        // 1. Prevent Browser Scrolling
+        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," ","w","a","s","d"].includes(e.key)) {
+            e.preventDefault();
+        }
         
         const state = engine.current;
+
+        // 2. INSTANT START: If game hasn't started, first key press starts it
+        if (!state.running && !gameOver) {
+            state.running = true;
+            setIsPlaying(true);
+        }
+
         if (!state.running || state.hero.isMoving) return;
 
         let dx = 0; 
         let dy = 0;
         let isDash = e.shiftKey && state.dashCooldown <= 0;
+        
+        const key = e.key.toLowerCase();
 
-        if (e.key === 'ArrowUp' || e.key === 'w') dy = -1;
-        else if (e.key === 'ArrowDown' || e.key === 's') dy = 1;
-        else if (e.key === 'ArrowLeft' || e.key === 'a') dx = -1;
-        else if (e.key === 'ArrowRight' || e.key === 'd') dx = 1;
+        if (key === 'arrowup' || key === 'w') dy = -1;
+        else if (key === 'arrowdown' || key === 's') dy = 1;
+        else if (key === 'arrowleft' || key === 'a') dx = -1;
+        else if (key === 'arrowright' || key === 'd') dx = 1;
         else return;
 
-        // Apply Dash (2 tiles)
+        // Apply Dash
         if (isDash) {
             dx *= 2; dy *= 2;
-            state.dashCooldown = 180; // 3 seconds @ 60fps
+            state.dashCooldown = 180;
             setDashReady(false);
-            createParticles(state.hero.x, state.hero.y, 'cyan', 10); // Dash effect
+            createParticles(state.hero.x, state.hero.y, 'cyan', 10);
         }
 
-        // Check Bounds
+        // Bounds Check
         const targetGX = state.hero.gridX + dx;
         const targetGY = state.hero.gridY + dy;
 
+        // Allow moving mostly anywhere, but clamp X to screen
         if (targetGX >= 0 && targetGX < COLS) {
             state.hero.gridX = targetGX;
             state.hero.gridY = targetGY;
             
-            // Calculate pixel target
             state.hero.targetX = targetGX * GRID_SIZE;
             state.hero.targetY = targetGY * GRID_SIZE;
             state.hero.isMoving = true;
 
-            // Combo System
+            // Combo Logic
             const now = Date.now();
-            if (now - state.lastMoveTime < 500) {
-                state.multiplier = Math.min(4, state.multiplier + 0.5);
-            } else {
-                state.multiplier = 1;
-            }
+            if (now - state.lastMoveTime < 500) state.multiplier = Math.min(4, state.multiplier + 0.5);
+            else state.multiplier = 1;
+            
             state.lastMoveTime = now;
             setMultiplier(state.multiplier);
         }
@@ -124,7 +136,7 @@ const PepeFrogger = ({ onExit }) => {
 
     window.addEventListener('keydown', handleInput, { capture: true });
     
-    // Mobile Touch (Swipe)
+    // Touch Logic
     let touchStartX = 0;
     let touchStartY = 0;
     const handleTouchStart = (e) => {
@@ -132,19 +144,15 @@ const PepeFrogger = ({ onExit }) => {
         touchStartY = e.changedTouches[0].screenY;
     };
     const handleTouchEnd = (e) => {
-        const touchEndX = e.changedTouches[0].screenX;
-        const touchEndY = e.changedTouches[0].screenY;
-        const diffX = touchEndX - touchStartX;
-        const diffY = touchEndY - touchStartY;
+        const diffX = e.changedTouches[0].screenX - touchStartX;
+        const diffY = e.changedTouches[0].screenY - touchStartY;
         
-        // Emulate Key Event
-        const fakeEvent = { key: '', code: '', shiftKey: false, preventDefault: () => {} };
-        if (Math.abs(diffX) > Math.abs(diffY)) {
-            fakeEvent.key = diffX > 0 ? 'ArrowRight' : 'ArrowLeft';
-        } else {
-            fakeEvent.key = diffY > 0 ? 'ArrowDown' : 'ArrowUp';
-        }
-        handleInput(fakeEvent);
+        // Emulate Arrow Key
+        let key = '';
+        if (Math.abs(diffX) > Math.abs(diffY)) key = diffX > 0 ? 'ArrowRight' : 'ArrowLeft';
+        else key = diffY > 0 ? 'ArrowDown' : 'ArrowUp';
+        
+        handleInput({ key, code: key, shiftKey: false, preventDefault: () => {} });
     };
 
     window.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -155,58 +163,48 @@ const PepeFrogger = ({ onExit }) => {
         window.removeEventListener('touchstart', handleTouchStart);
         window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isPlaying]);
+  }, [gameOver]);
 
-  // --- 3. GENERATION LOGIC ---
+  // --- 3. GENERATION ---
   const generateLane = (gridY, difficulty) => {
-      // Biomes based on distance (gridY decreases as we go up)
-      // 0 to -50: Suburbs (Grass/Road)
-      // -50 to -100: City (Road/Water)
-      // -100+: Matrix (Glitch/Water)
-      
       let biome = 'suburbs';
-      if (gridY < -50) biome = 'city';
-      if (gridY < -100) biome = 'matrix';
+      if (gridY < -20) biome = 'city';
+      if (gridY < -80) biome = 'matrix';
 
       let type = 'grass';
       const rand = Math.random();
 
-      // Biome Logic
+      // Simple Biome Mix
       if (biome === 'suburbs') {
-          if (rand > 0.6) type = 'road';
+         if (rand > 0.6) type = 'road';
       } else if (biome === 'city') {
-          if (rand > 0.3) type = 'road';
-          else if (rand > 0.8) type = 'water';
+         if (rand > 0.3) type = 'road';
+         else if (rand > 0.8) type = 'water';
       } else {
-          // Matrix: Harder
-          if (rand > 0.2) type = 'road'; // "Roads" are glitches
-          else type = 'water';
+         if (rand > 0.2) type = 'road'; // Glitch road
+         else type = 'water';
       }
 
-      // Generate Obstacles
       const elements = [];
       let speed = 0;
-      
+
       if (type !== 'grass') {
           speed = (Math.random() * 2 + 2 + (difficulty * 0.1)) * (Math.random() < 0.5 ? 1 : -1);
-          if (biome === 'matrix') speed *= 1.5; // Faster in Matrix
+          if (biome === 'matrix') speed *= 1.5;
 
           const count = Math.floor(Math.random() * 2) + 2;
           for (let i=0; i<count; i++) {
               elements.push({
-                  x: i * 150 + Math.random() * 60,
+                  x: i * 180 + Math.random() * 60,
                   w: type === 'water' ? 90 : 40,
                   type: type === 'water' ? 'log' : (biome === 'matrix' ? 'glitch' : 'car'),
                   isPowerup: false
               });
           }
-      } 
-      // Powerup Chance (On Logs or Grass)
-      else if (Math.random() < 0.1) {
-          // Spawn static powerup
+      } else if (Math.random() < 0.08) {
+          // Rare Powerup
           elements.push({
-              x: Math.random() * 300 + 20,
-              w: 30,
+              x: Math.random() * 300 + 20, w: 30,
               type: Math.random() < 0.7 ? 'gold' : 'shield',
               isPowerup: true
           });
@@ -218,11 +216,7 @@ const PepeFrogger = ({ onExit }) => {
   const createParticles = (x, y, color, count) => {
       for(let i=0; i<count; i++) {
           engine.current.particles.push({
-              x, y,
-              vx: (Math.random() - 0.5) * 8,
-              vy: (Math.random() - 0.5) * 8,
-              life: 20,
-              color
+              x, y, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8, life: 20, color
           });
       }
   };
@@ -234,41 +228,46 @@ const PepeFrogger = ({ onExit }) => {
     const ctx = canvas.getContext('2d');
     let animationId;
 
-    // Reset
-    engine.current.running = false;
-    engine.current.hero = { gridX: 5, gridY: 15, x: 200, y: 600, targetX: 200, targetY: 600, isMoving: false };
-    engine.current.cameraY = 0;
-    engine.current.score = 0;
-    engine.current.shield = false;
-    engine.current.lanes = [];
-    
-    // Initial Lanes
-    for (let i=0; i<20; i++) {
-        engine.current.lanes.push(generateLane(15 - i, 0));
-    }
+    // Reset Engine
+    const resetGame = () => {
+        engine.current.running = false;
+        // FIX: Start at Grid 13 (Visible 520px), not 15 (600px - offscreen)
+        engine.current.hero = { 
+            gridX: 4, gridY: 13, 
+            x: 160, y: 520, 
+            targetX: 160, targetY: 520, 
+            isMoving: false 
+        };
+        // FIX: Set Camera immediately to match hero
+        engine.current.cameraY = (13 * GRID_SIZE) - 400; 
+        
+        engine.current.score = 0;
+        engine.current.shield = false;
+        engine.current.lanes = [];
+        
+        // Init Lanes
+        for (let i=0; i<20; i++) engine.current.lanes.push(generateLane(15 - i, 0));
+    };
+    resetGame();
 
     const loop = () => {
         const state = engine.current;
         const w = canvas.width;
         const h = canvas.height;
 
-        // A. UPDATE STATE
-        if (isPlaying && state.running) {
+        // A. UPDATE
+        // We allow updates even if not "running" fully yet, to handle camera settling
+        if (state.running && !gameOver) {
             state.frames++;
-            
-            // 1. Dash Cooldown
             if (state.dashCooldown > 0) {
                 state.dashCooldown--;
                 if (state.dashCooldown === 0) setDashReady(true);
             }
 
-            // 2. Smooth Movement (Lerp)
+            // Move Hero
             if (state.hero.isMoving) {
-                const speed = 0.3; // Interpolation speed
-                state.hero.x += (state.hero.targetX - state.hero.x) * speed;
-                state.hero.y += (state.hero.targetY - state.hero.y) * speed;
-                
-                // Snap if close
+                state.hero.x += (state.hero.targetX - state.hero.x) * 0.4;
+                state.hero.y += (state.hero.targetY - state.hero.y) * 0.4;
                 if (Math.abs(state.hero.x - state.hero.targetX) < 1 && Math.abs(state.hero.y - state.hero.targetY) < 1) {
                     state.hero.x = state.hero.targetX;
                     state.hero.y = state.hero.targetY;
@@ -276,15 +275,12 @@ const PepeFrogger = ({ onExit }) => {
                 }
             }
 
-            // 3. Camera (Follows Hero GridY)
-            // Visual Y is (gridY * 40). We want that to be around screen Y = 400.
-            // Camera Y should be (heroGridY * 40) - 400.
+            // Camera Tracking
             const targetCam = (state.hero.gridY * GRID_SIZE) - 400;
-            state.cameraY += (targetCam - state.cameraY) * 0.1; // Smooth cam
+            state.cameraY += (targetCam - state.cameraY) * 0.1;
 
-            // 4. Update Lanes & Obstacles
+            // Lanes Logic
             state.lanes.forEach(lane => {
-                // Move Elements
                 lane.elements.forEach(el => {
                     if (!el.isPowerup) {
                         el.x += lane.speed;
@@ -293,61 +289,42 @@ const PepeFrogger = ({ onExit }) => {
                     }
                 });
 
-                // Collision Check
-                if (lane.gridY === state.hero.gridY) {
+                // Collision
+                if (lane.gridY === state.hero.gridY && !state.hero.isMoving) {
                     let onLog = false;
                     let safe = lane.type === 'grass';
                     
                     lane.elements.forEach(el => {
-                        const heroHitbox = { x: state.hero.x + 10, w: 20 }; // Tiny hitbox
-                        const elHitbox = { x: el.x + 5, w: el.w - 10 };
-
-                        if (heroHitbox.x < elHitbox.x + elHitbox.w && heroHitbox.x + heroHitbox.w > elHitbox.x) {
+                        // Forgiving Hitbox
+                        if (state.hero.x + 25 > el.x + 5 && state.hero.x + 10 < el.x + el.w - 5) {
                             if (el.isPowerup) {
-                                // Collect Powerup
-                                if (el.type === 'gold') {
-                                    state.score += 500;
-                                    setScore(state.score);
-                                    createParticles(el.x, lane.gridY*40, 'gold', 10);
-                                } else if (el.type === 'shield') {
-                                    state.shield = true;
-                                    setHasShield(true);
-                                    createParticles(el.x, lane.gridY*40, 'blue', 10);
-                                }
-                                // Remove powerup
-                                el.x = -9999; 
+                                if (el.type === 'gold') { setScore(s => s + 500); state.score += 500; }
+                                if (el.type === 'shield') { setHasShield(true); state.shield = true; }
+                                el.x = -9999; // Remove
                             } else if (lane.type === 'water') {
                                 onLog = true;
-                                if (!state.hero.isMoving) state.hero.x += lane.speed; // Ride log
+                                state.hero.x += lane.speed;
+                                state.hero.targetX = state.hero.x; // Sync target so we don't snap back
                             } else {
-                                // Hit Car
                                 hitObstacle();
                             }
                         }
                     });
 
-                    if (lane.type === 'water' && !onLog && !state.hero.isMoving) {
-                        hitObstacle(); // Drowned
-                    }
+                    if (lane.type === 'water' && !onLog) hitObstacle();
                 }
             });
 
-            // 5. Score & Gen
-            const distScore = (15 - state.hero.gridY) * 10;
-            if (distScore > state.score) {
-                state.score = distScore;
-                setScore(state.score);
-            }
-            
-            // Gen new lanes
+            // Lane Gen
             const topLane = state.lanes[state.lanes.length - 1];
             if (topLane.gridY > state.hero.gridY - 15) {
-                const diff = Math.floor(state.score / 500);
-                state.lanes.push(generateLane(topLane.gridY - 1, diff));
+                state.lanes.push(generateLane(topLane.gridY - 1, Math.floor(state.score/500)));
             }
-            
-            // Clean lanes
             state.lanes = state.lanes.filter(l => l.gridY < state.hero.gridY + 10);
+            
+            // Score
+            const dist = (15 - state.hero.gridY) * 10;
+            if (dist > state.score) { state.score = dist; setScore(dist); }
         }
 
         // B. RENDER
@@ -357,74 +334,60 @@ const PepeFrogger = ({ onExit }) => {
         ctx.save();
         ctx.translate(0, -state.cameraY);
 
-        // Draw Lanes
         state.lanes.forEach(lane => {
             const y = lane.gridY * GRID_SIZE;
             
-            // Texture
+            // Backgrounds
             let color = '#333';
-            if (lane.type === 'grass') color = lane.biome === 'matrix' ? '#003300' : '#4caf50';
-            if (lane.type === 'water') color = '#1a237e';
+            if (lane.type === 'grass') color = lane.biome === 'matrix' ? '#003300' : '#2e7d32';
+            if (lane.type === 'water') color = '#1565c0';
             if (lane.type === 'road') color = '#212121';
-            
             ctx.fillStyle = color;
             ctx.fillRect(0, y, w, GRID_SIZE);
 
-            // Matrix Rain Effect
-            if (lane.biome === 'matrix' && lane.type === 'grass') {
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
-                ctx.font = '10px monospace';
-                ctx.fillText(String.fromCharCode(0x30A0 + Math.random()*96), Math.random()*w, y+20);
+            if (lane.type === 'road') {
+                ctx.fillStyle = '#666'; 
+                ctx.fillRect(0, y, w, 2); 
+                ctx.fillRect(0, y+38, w, 2);
             }
-            
-            // Draw Elements
+
+            // Sprites
             lane.elements.forEach(el => {
-                if (el.x < -100 || el.x > w + 100) return;
-                
-                let spriteKey = 'car';
-                if (el.type === 'log') spriteKey = 'log';
-                if (el.type === 'glitch') spriteKey = 'glitch';
-                if (el.type === 'gold') spriteKey = 'gold';
-                if (el.type === 'shield') spriteKey = 'shield';
-                
-                const img = state.sprites[spriteKey];
-                if (img) ctx.drawImage(img, el.x, y + 5, el.w, 30);
+                let sKey = 'car';
+                if (el.type === 'log') sKey = 'log';
+                if (el.type === 'glitch') sKey = 'glitch';
+                if (el.type === 'gold') sKey = 'gold';
+                if (el.type === 'shield') sKey = 'shield';
+
+                const img = engine.current.sprites[sKey];
+                if (img) ctx.drawImage(img, el.x, y+5, el.w, 30);
                 else {
-                    ctx.fillStyle = 'red';
+                    ctx.fillStyle = el.isPowerup ? 'gold' : 'red';
                     ctx.fillRect(el.x, y+5, el.w, 30);
                 }
             });
         });
 
-        // Draw Hero
-        ctx.globalAlpha = state.shield ? 0.6 : 1.0; // Ghost mode if shielded
-        const imgPepe = state.sprites['pepe'];
-        if (imgPepe) ctx.drawImage(imgPepe, state.hero.x, state.hero.y, 35, 35);
-        else {
-            ctx.fillStyle = 'lime';
-            ctx.fillRect(state.hero.x, state.hero.y, 35, 35);
-        }
-        ctx.globalAlpha = 1.0;
-
-        // Shield Aura
+        // Hero
+        const pepe = engine.current.sprites['pepe'];
         if (state.shield) {
             ctx.strokeStyle = 'cyan';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(state.hero.x + 17.5, state.hero.y + 17.5, 25, 0, Math.PI*2);
+            ctx.arc(state.hero.x + 17, state.hero.y + 17, 25, 0, Math.PI*2);
             ctx.stroke();
         }
+        if (pepe) ctx.drawImage(pepe, state.hero.x, state.hero.y, 35, 35);
+        else { ctx.fillStyle = 'lime'; ctx.fillRect(state.hero.x, state.hero.y, 35, 35); }
 
         // Particles
         state.particles.forEach(p => {
             p.x += p.vx; p.y += p.vy; p.life--;
-            ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, 4, 4);
+            ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4);
         });
         state.particles = state.particles.filter(p => p.life > 0);
 
         ctx.restore();
-        
         animationId = requestAnimationFrame(loop);
     };
 
@@ -432,7 +395,7 @@ const PepeFrogger = ({ onExit }) => {
         if (engine.current.shield) {
             engine.current.shield = false;
             setHasShield(false);
-            createParticles(engine.current.hero.x, engine.current.hero.y, 'white', 20); // Shield break effect
+            createParticles(engine.current.hero.x, engine.current.hero.y, 'white', 20);
             return;
         }
         engine.current.running = false;
@@ -442,9 +405,9 @@ const PepeFrogger = ({ onExit }) => {
 
     loop();
     return () => cancelAnimationFrame(animationId);
-  }, [isPlaying, resetKey]);
+  }, [resetKey]);
 
-  // Sync Countdown
+  // Sync Timer (Optional auto-start, but keys also start it now)
   useEffect(() => {
       if(!gameOver) setTimeout(() => {
           setIsPlaying(true);
@@ -452,33 +415,37 @@ const PepeFrogger = ({ onExit }) => {
       }, 3000);
   }, [resetKey, gameOver]);
 
-  const handleRestart = () => {
-      setGameOver(false); setIsPlaying(false); setScore(0);
-      setMultiplier(1); setHasShield(false); setDashReady(true);
-      setResetKey(k => k + 1);
-  };
-
   return (
-    <div className="game-wrapper" tabIndex="0" style={{outline:'none'}}>
+    <div 
+        ref={containerRef}
+        className="game-wrapper" 
+        tabIndex="0" 
+        style={{outline: '4px solid #00ff00'}} // Visual feedback that it's active
+        onClick={() => containerRef.current.focus()}
+    >
         <GameUI 
             score={score} 
             gameOver={gameOver} 
             isPlaying={isPlaying} 
-            onRestart={handleRestart} 
+            onRestart={() => { 
+                setGameOver(false); setIsPlaying(false); setScore(0);
+                setMultiplier(1); setHasShield(false); setDashReady(true);
+                setResetKey(k => k + 1); 
+            }} 
             onExit={onExit} 
             gameId="frogger" 
         />
         
-        {/* HUD Extras */}
+        {/* HUD */}
         {isPlaying && !gameOver && (
             <div style={{position: 'absolute', top: 60, left: 10, pointerEvents:'none'}}>
-                <div style={{color: dashReady ? 'cyan' : 'gray', fontSize: 14, fontFamily:'Press Start 2P'}}>
-                    DASH: {dashReady ? 'READY (SHIFT)' : 'COOLDOWN'}
+                <div style={{color: dashReady?'cyan':'gray', fontFamily:'monospace', fontSize:16, textShadow:'1px 1px black'}}>
+                    DASH: {dashReady ? 'READY (SHIFT)' : 'WAIT'}
                 </div>
-                <div style={{color: multiplier > 1 ? 'yellow' : 'white', fontSize: 14, marginTop: 5, fontFamily:'Press Start 2P'}}>
+                <div style={{color: 'yellow', fontFamily:'monospace', fontSize:16, textShadow:'1px 1px black'}}>
                     COMBO: {multiplier.toFixed(1)}x
                 </div>
-                {hasShield && <div style={{color: 'cyan', fontSize: 14, marginTop: 5, fontFamily:'Press Start 2P'}}>SHIELD ACTIVE</div>}
+                {hasShield && <div style={{color:'cyan', fontSize:16, textShadow:'1px 1px black'}}>SHIELD ON</div>}
             </div>
         )}
 
