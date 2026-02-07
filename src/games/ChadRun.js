@@ -32,16 +32,16 @@ const ChadRun = ({ onExit }) => {
     },
     
     groundY: 500,
-    obstacles: [], // { x, y, w, h, type, passed }
+    obstacles: [], 
     clouds: [],
     sprites: {}
   });
 
   // Constants
   const GRAVITY = 0.6;
-  const JUMP_FORCE = -13; // Max height
-  const JUMP_CUTOFF = -5; // Height when button released
-  const FAST_DROP = 2.5; // Extra gravity when pressing down
+  const JUMP_FORCE = -13; 
+  const JUMP_CUTOFF = -5; 
+  const FAST_DROP = 2.5; 
   const BASE_SPEED = 6;
   const MAX_SPEED = 18;
 
@@ -58,7 +58,7 @@ const ChadRun = ({ onExit }) => {
     load('bird', ASSETS.OBSTACLE_BIRD);
   }, []);
 
-  // --- 2. INPUT HANDLER (Variable Jump & Fast Drop) ---
+  // --- 2. INPUT HANDLER ---
   useEffect(() => {
     if(containerRef.current) containerRef.current.focus();
 
@@ -67,7 +67,6 @@ const ChadRun = ({ onExit }) => {
         
         const state = engine.current;
         
-        // Auto-start
         if (!state.running && !gameOver && isDown) {
             state.running = true;
             setIsPlaying(true);
@@ -79,34 +78,30 @@ const ChadRun = ({ onExit }) => {
         const isJumpKey = key === ' ' || key === 'ArrowUp' || key === 'w';
         const isDuckKey = key === 'ArrowDown' || key === 's';
 
-        // JUMP LOGIC
+        // Jump
         if (isJumpKey) {
             if (isDown) {
-                // Press: Start Jump
                 if (state.hero.isGrounded) {
                     state.hero.vy = JUMP_FORCE;
                     state.hero.isGrounded = false;
                     state.hero.isJumping = true;
                 }
             } else {
-                // Release: Variable Jump Height
                 if (state.hero.vy < JUMP_CUTOFF) {
-                    state.hero.vy = JUMP_CUTOFF; // Cut velocity to stop rising
+                    state.hero.vy = JUMP_CUTOFF;
                 }
                 state.hero.isJumping = false;
             }
         }
 
-        // DUCK / FAST DROP LOGIC
-        if (isDuckKey) {
-            state.hero.isDucking = isDown;
-        }
+        // Duck
+        if (isDuckKey) state.hero.isDucking = isDown;
     };
 
     const down = (e) => handleInput(e, true);
     const up = (e) => handleInput(e, false);
     
-    // Mobile Touch
+    // Touch
     const touchStart = (e) => {
         const y = e.touches[0].clientY;
         if (y > window.innerHeight / 2) handleInput({key: 'ArrowDown', preventDefault:()=>{}}, true);
@@ -130,50 +125,37 @@ const ChadRun = ({ onExit }) => {
     };
   }, [gameOver]);
 
-  // --- 3. SMART SPAWNING (Fairness Algorithm) ---
+  // --- 3. GENERATION (With Variance) ---
   const spawnObstacle = () => {
       const state = engine.current;
       
-      // Calculate Minimum Safe Gap based on Speed
-      // Time to jump over an object approx 30-40 frames
-      // Gap = Speed * Frames
+      // Calculate Safe Gap
       const minGap = state.speed * 35;
-      
-      // Check last obstacle distance
       const lastOb = state.obstacles[state.obstacles.length - 1];
-      if (lastOb && (800 - (lastOb.x + lastOb.w) < minGap)) {
-          return; // Too close, don't spawn yet
-      }
+      if (lastOb && (800 - (lastOb.x + lastOb.w) < minGap)) return;
 
-      // Determine Obstacle Type
-      // Birds appear after score 5
       const canSpawnBird = state.score > 5;
       const type = (Math.random() < 0.3 && canSpawnBird) ? 'bird' : 'soyjak';
       
       let w = 40, h = 40, y = state.groundY - 40;
       
       if (type === 'soyjak') {
-          // Difficulty Scaling: Wider groups appear later
           const doubleChance = Math.min(0.5, state.score * 0.02);
-          if (Math.random() < doubleChance) w = 70; // Double Soyjak
-          else w = 35; // Single
+          if (Math.random() < doubleChance) w = 70; 
+          else w = 35; 
           h = 50;
           y = state.groundY - h;
       } else {
-          // Bird
           w = 40; h = 30;
-          // High Bird (Duckable) or Low Bird (Jumpable)
-          // 30% chance of Low Bird (Harder)
-          const isLow = Math.random() < 0.3;
-          y = state.groundY - (isLow ? 50 : 90); 
+          y = state.groundY - (Math.random() < 0.3 ? 50 : 90); 
       }
 
       state.obstacles.push({ x: 800, y, w, h, type, passed: false });
   };
 
-  const spawnCloud = () => {
+  const spawnCloud = (forceX = null) => {
       engine.current.clouds.push({
-          x: 800, 
+          x: forceX !== null ? forceX : 800, 
           y: Math.random() * 300, 
           w: 60 + Math.random() * 40, 
           speed: 0.5 + Math.random() * 0.5
@@ -188,14 +170,27 @@ const ChadRun = ({ onExit }) => {
     let animationId;
 
     // Reset Engine
-    engine.current.running = false;
-    engine.current.hero = { 
-        x: 50, y: 500-60, w: 40, h: 60, 
-        vy: 0, isGrounded: true, isDucking: false 
+    const resetGame = () => {
+        engine.current.running = false;
+        engine.current.hero = { 
+            x: 50, y: 500-60, w: 40, h: 60, 
+            vy: 0, isGrounded: true, isDucking: false 
+        };
+        engine.current.speed = BASE_SPEED;
+        engine.current.score = 0;
+        engine.current.obstacles = [];
+        engine.current.clouds = [];
+        
+        // VARIANCE FIX: Start at a random frame count (0-100)
+        // This ensures the first obstacle doesn't always spawn at the exact same moment
+        engine.current.frames = Math.floor(Math.random() * 100); 
+
+        // PRE-POPULATE CLOUDS
+        for(let i=0; i<5; i++) {
+            spawnCloud(Math.random() * 800);
+        }
     };
-    engine.current.speed = BASE_SPEED;
-    engine.current.score = 0;
-    engine.current.obstacles = [];
+    resetGame();
     
     const loop = () => {
         const state = engine.current;
@@ -205,19 +200,15 @@ const ChadRun = ({ onExit }) => {
         // Render Background
         ctx.fillStyle = "#222";
         ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = "#fff"; // Ground Line
+        ctx.fillStyle = "#fff"; 
         ctx.fillRect(0, state.groundY, w, 2);
 
         if (state.running && !gameOver) {
             state.frames++;
             
-            // --- PHYSICS ---
+            // Physics
             let gravity = GRAVITY;
-            
-            // Fast Drop Logic
-            if (state.hero.isDucking && !state.hero.isGrounded) {
-                gravity += FAST_DROP;
-            }
+            if (state.hero.isDucking && !state.hero.isGrounded) gravity += FAST_DROP;
 
             state.hero.vy += gravity;
             state.hero.y += state.hero.vy;
@@ -233,16 +224,14 @@ const ChadRun = ({ onExit }) => {
                 state.hero.isGrounded = true;
             }
 
-            // Speed Scaling (Based on Score)
-            // Cap speed at 18 (Fast but humanly possible)
+            // Speed Scaling
             const targetSpeed = BASE_SPEED + (state.score * 0.2);
             state.speed = Math.min(MAX_SPEED, targetSpeed);
 
-            // --- OBSTACLES ---
+            // Obstacles Logic
             state.obstacles.forEach(ob => {
                 ob.x -= state.speed;
 
-                // Hitbox Calculation
                 const heroHitbox = {
                     x: state.hero.x + 10,
                     y: state.hero.isDucking ? state.hero.y + 10 : state.hero.y + 5,
@@ -254,7 +243,6 @@ const ChadRun = ({ onExit }) => {
                     x: ob.x + 5, y: ob.y + 5, w: ob.w - 10, h: ob.h - 10
                 };
 
-                // Collision Check
                 if (
                     heroHitbox.x < obHitbox.x + obHitbox.w &&
                     heroHitbox.x + heroHitbox.w > obHitbox.x &&
@@ -264,7 +252,6 @@ const ChadRun = ({ onExit }) => {
                     die();
                 }
 
-                // Scoring (Only once per obstacle)
                 if (!ob.passed && ob.x + ob.w < state.hero.x) {
                     ob.passed = true;
                     state.score++;
@@ -272,27 +259,20 @@ const ChadRun = ({ onExit }) => {
                 }
             });
 
-            // Cleanup & Spawning
             state.obstacles = state.obstacles.filter(ob => ob.x > -100);
             
-            // Determine Spawn Rate based on Speed
-            // Faster speed = More frequency needed to keep flow
-            // But we use the "Safe Gap" algorithm in spawnObstacle() to prevent unfairness
-            // We attempt to spawn often, but the function rejects if unsafe
+            // Spawning (With Variance from initial frame offset)
             if (state.frames % 10 === 0) spawnObstacle(); 
             
-            // Clouds
-            state.clouds.forEach(c => c.x -= c.speed);
+            state.clouds.forEach(c => c.x -= c.speed * 0.5);
             state.clouds = state.clouds.filter(c => c.x > -100);
             if (state.frames % 120 === 0) spawnCloud();
         }
 
-        // --- RENDER OBJECTS ---
-        // Clouds
+        // Render
         ctx.fillStyle = '#444';
         state.clouds.forEach(c => ctx.fillRect(c.x, c.y, c.w, 20));
 
-        // Obstacles
         state.obstacles.forEach(ob => {
             const img = state.sprites[ob.type];
             if (img) ctx.drawImage(img, ob.x, ob.y, ob.w, ob.h);
@@ -302,25 +282,30 @@ const ChadRun = ({ onExit }) => {
             }
         });
 
-        // Hero
         const hH = state.hero.isDucking ? 30 : 60;
-        const hY = state.hero.y; // Correct Y based on physics state
-        
         const imgChad = state.sprites['chad'];
-        if (imgChad) {
-            ctx.drawImage(imgChad, state.hero.x, hY, 40, hH);
-        } else {
+        if (imgChad) ctx.drawImage(imgChad, state.hero.x, state.hero.y + (state.hero.isDucking?30:0), 40, hH);
+        else {
             ctx.fillStyle = 'cyan';
-            ctx.fillRect(state.hero.x, hY, 40, hH);
+            ctx.fillRect(state.hero.x, state.hero.y + (state.hero.isDucking?30:0), 40, hH);
         }
 
         animationId = requestAnimationFrame(loop);
     };
 
-    const die = () => {
+    const die = async () => {
         engine.current.running = false;
         setGameOver(true);
-        if(username) supabase.from('leaderboards').insert([{game_id:'chadrun', username, score: engine.current.score}]);
+        // LEADERBOARD FIX: Explicitly handle the promise and ensure matching game_id
+        if(username) {
+            try {
+                await supabase.from('leaderboards').insert([
+                    { game_id: 'chadrun', username: username, score: engine.current.score }
+                ]);
+            } catch (error) {
+                console.error("Leaderboard Error:", error);
+            }
+        }
     };
 
     loop();
