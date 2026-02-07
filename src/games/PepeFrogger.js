@@ -13,7 +13,7 @@ const PepeFrogger = ({ onExit }) => {
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-  const [multiplier, setMultiplier] = useState(1);
+  // REMOVED: Multiplier state
   const [hasShield, setHasShield] = useState(false);
   const [dashReady, setDashReady] = useState(true);
 
@@ -26,12 +26,12 @@ const PepeFrogger = ({ onExit }) => {
     cameraY: 0,
     autoScrollY: 0,
     score: 0,
-    multiplier: 1,
-    lastMoveTime: 0,    // For Combo Multiplier
+    // REMOVED: Multiplier & lastMoveTime refs
     lastInputTime: 0,   // For Camera Chase Mechanic
+    consecutiveUpMoves: 0, // NEW: Track consecutive forward movements
     dashCooldown: 0,
     shield: false,
-    invulnerable: 0,    // NEW: Invulnerability timer (frames)
+    invulnerable: 0,
     hero: { gridX: 4, gridY: 13, x: 160, y: 520, targetX: 160, targetY: 520, isMoving: false },
     lanes: [], 
     lastLaneType: 'grass',
@@ -82,14 +82,27 @@ const PepeFrogger = ({ onExit }) => {
         let isDash = e.shiftKey && state.dashCooldown <= 0;
         const key = e.key ? e.key.toLowerCase() : '';
 
-        if (key === 'arrowup' || key === 'w') dy = -1;
-        else if (key === 'arrowdown' || key === 's') dy = 1;
-        else if (key === 'arrowleft' || key === 'a') dx = -1;
-        else if (key === 'arrowright' || key === 'd') dx = 1;
-        else return;
-
-        // --- RESET CHASE TIMER ---
-        state.lastInputTime = now;
+        // --- INPUT LOGIC & CHASE RESET ---
+        // Requirement: Sideways/Down does NOT reset chase timer.
+        // Requirement: 2 Consecutive UP moves reset chase timer.
+        
+        if (key === 'arrowup' || key === 'w') {
+            dy = -1;
+            state.consecutiveUpMoves++;
+            // Only reset timer if we have moved up twice in a row
+            if (state.consecutiveUpMoves >= 2) {
+                state.lastInputTime = now;
+                // We don't reset count to 0 here to allow continuous resetting if they keep running up
+            }
+        } else {
+            // Any other move breaks the "consecutive up" streak
+            state.consecutiveUpMoves = 0;
+            
+            if (key === 'arrowdown' || key === 's') dy = 1;
+            else if (key === 'arrowleft' || key === 'a') dx = -1;
+            else if (key === 'arrowright' || key === 'd') dx = 1;
+            else return;
+        }
 
         if (isDash) {
             dx *= 2; dy *= 2;
@@ -98,11 +111,7 @@ const PepeFrogger = ({ onExit }) => {
             createParticles(state.hero.x, state.hero.y, 'cyan', 10);
         }
 
-        // --- FIX: RECALCULATE GRID X FROM VISUAL POSITION ---
-        // This prevents snapping back to the center if you drifted on a log.
-        // We calculate which column we are *visually* closest to right now.
         const currentVisualGridX = Math.round(state.hero.x / GRID_SIZE);
-        
         const targetGX = currentVisualGridX + dx;
         const targetGY = state.hero.gridY + dy;
 
@@ -112,13 +121,6 @@ const PepeFrogger = ({ onExit }) => {
             state.hero.targetX = targetGX * GRID_SIZE;
             state.hero.targetY = targetGY * GRID_SIZE;
             state.hero.isMoving = true;
-
-            const timeDiff = now - state.lastMoveTime;
-            if (dy === -1 && timeDiff < 1000) state.multiplier = Math.min(4, state.multiplier + 0.5);
-            else state.multiplier = 1;
-            
-            state.lastMoveTime = now;
-            setMultiplier(state.multiplier);
         }
     };
 
@@ -225,6 +227,7 @@ const PepeFrogger = ({ onExit }) => {
         engine.current.score = 0;
         engine.current.shield = false;
         engine.current.invulnerable = 0;
+        engine.current.consecutiveUpMoves = 0;
         engine.current.lanes = [];
         engine.current.lastLaneType = 'grass';
         engine.current.lastTime = performance.now();
@@ -246,13 +249,14 @@ const PepeFrogger = ({ onExit }) => {
             if (state.dashCooldown > 0) { state.dashCooldown -= 1 * dt; if (state.dashCooldown <= 0) setDashReady(true); }
             if (state.invulnerable > 0) { state.invulnerable -= 1 * dt; }
 
-            // --- CAMERA LOGIC ---
-            // 1. Base auto-scroll (increases with score)
+            // --- CAMERA LOGIC UPDATED ---
+            // 1. Base auto-scroll
             let scrollSpeed = 0.5 + (state.score * 0.001);
             
-            // 2. IDLE CHASE MECHANIC: If idle > 4000ms and score > 20, speed up camera
-            if (time - state.lastInputTime > 4000 && state.score > 20) {
-                scrollSpeed += 2.0; // Chase speed
+            // 2. IDLE CHASE MECHANIC: 
+            // Trigger: Idle > 4000ms AND Score > 500
+            if (time - state.lastInputTime > 4000 && state.score > 500) {
+                scrollSpeed += 2.5; // Aggressive Chase speed
             }
 
             if (state.score > 100) { state.autoScrollY -= scrollSpeed * dt; }
@@ -286,7 +290,10 @@ const PepeFrogger = ({ onExit }) => {
                     lane.elements.forEach(el => {
                         if (state.hero.x + 25 > el.x + 5 && state.hero.x + 10 < el.x + el.w - 5) {
                             if (el.isPowerup) {
-                                if (el.type === 'gold') { setScore(s => s + 500); state.score += 500; }
+                                if (el.type === 'gold') { 
+                                    setScore(s => s + 100); // UPDATED BONUS
+                                    state.score += 100; 
+                                }
                                 if (el.type === 'shield') { setHasShield(true); state.shield = true; }
                                 el.x = -9999; 
                             } else if (lane.type === 'water') {
@@ -354,11 +361,8 @@ const PepeFrogger = ({ onExit }) => {
     };
 
     const hitObstacle = () => {
-        // --- FIX: SHIELD INVULNERABILITY ---
-        // If invulnerable, ignore hit
         if (engine.current.invulnerable > 0) return;
 
-        // If shield active, break shield and grant 60 frames (approx 1s) of invulnerability
         if (engine.current.shield) {
             engine.current.shield = false; 
             setHasShield(false);
@@ -379,11 +383,11 @@ const PepeFrogger = ({ onExit }) => {
 
   return (
     <div ref={containerRef} className="game-wrapper" tabIndex="0" style={{outline: '4px solid #00ff00'}} onClick={() => containerRef.current.focus()}>
-        <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setMultiplier(1); setHasShield(false); setDashReady(true); setResetKey(k => k + 1); }} onExit={onExit} gameId="frogger" />
+        <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setHasShield(false); setDashReady(true); setResetKey(k => k + 1); }} onExit={onExit} gameId="frogger" />
         {isPlaying && !gameOver && (
             <div style={{position: 'absolute', top: 60, left: 10, pointerEvents:'none'}}>
                 <div style={{color: dashReady?'cyan':'gray', fontFamily:'monospace', fontSize:16, textShadow:'1px 1px black'}}>DASH: {dashReady ? 'READY (SHIFT)' : 'WAIT'}</div>
-                <div style={{color: multiplier > 1 ? 'yellow' : 'white', fontFamily:'monospace', fontSize:16, textShadow:'1px 1px black'}}>COMBO: {multiplier.toFixed(1)}x</div>
+                {/* REMOVED COMBO UI */}
                 {hasShield && <div style={{color:'cyan', fontSize:16, textShadow:'1px 1px black'}}>SHIELD ON</div>}
             </div>
         )}
