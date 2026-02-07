@@ -7,7 +7,7 @@ import GameUI from '../components/GameUI';
 const ChadRun = ({ onExit }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
-  const { username } = useContext(UserContext);
+  const { username, address } = useContext(UserContext);
 
   // --- REACT STATE ---
   const [score, setScore] = useState(0);
@@ -329,7 +329,7 @@ const ChadRun = ({ onExit }) => {
         if(username) {
             try {
                 await supabase.from('leaderboards').insert([
-                    { game_id: 'chadrun', username: username, score: engine.current.score }
+                    { game_id: 'chadrun', username: username, score: engine.current.score, address: address }
                 ]);
             } catch(e) { console.error(e); }
         }

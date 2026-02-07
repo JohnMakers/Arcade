@@ -6,7 +6,7 @@ import GameUI from '../components/GameUI';
 
 const StonksJump = ({ onExit }) => {
   const canvasRef = useRef(null);
-  const { username } = useContext(UserContext);
+  const { username, address } = useContext(UserContext);
 
   // UI State
   const [score, setScore] = useState(0);
@@ -187,7 +187,7 @@ const StonksJump = ({ onExit }) => {
         if (state.hero.y > state.cameraY + canvas.height) {
             state.active = false;
             setGameOver(true);
-            if (username) supabase.from('leaderboards').insert([{game_id:'doodle', username, score: Math.floor(Math.abs(state.cameraY))}]);
+            if (username) supabase.from('leaderboards').insert([{game_id:'doodle', username, score: Math.floor(Math.abs(state.cameraY)), address: address}]);
         }
       }
 

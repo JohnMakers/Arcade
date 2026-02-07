@@ -6,7 +6,7 @@ import GameUI from '../components/GameUI';
 
 const FlappyDoge = ({ onExit }) => {
   const canvasRef = useRef(null);
-  const { username } = useContext(UserContext);
+  const { username, address } = useContext(UserContext);
 
   // --- REACT STATE (For UI Only) ---
   const [score, setScore] = useState(0);
@@ -194,7 +194,7 @@ const FlappyDoge = ({ onExit }) => {
             supabase.from('leaderboards').insert([{
                 game_id: 'flappy',
                 username,
-                score: engine.current.score
+                score: engine.current.score, address: address
             }]).then();
         }
     };

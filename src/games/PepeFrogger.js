@@ -7,7 +7,7 @@ import GameUI from '../components/GameUI';
 const PepeFrogger = ({ onExit }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
-  const { username } = useContext(UserContext);
+  const { username, address } = useContext(UserContext);
 
   // --- REACT UI STATE ---
   const [score, setScore] = useState(0);
@@ -454,7 +454,7 @@ const PepeFrogger = ({ onExit }) => {
         }
         engine.current.running = false;
         setGameOver(true);
-        if(username) supabase.from('leaderboards').insert([{game_id:'frogger', username, score: engine.current.score}]);
+        if(username) supabase.from('leaderboards').insert([{game_id:'frogger', username, score: engine.current.score, address: address}]);
     };
 
     loop();
