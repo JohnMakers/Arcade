@@ -39,7 +39,6 @@ const StonksJump = ({ onExit }) => {
     loadSprite('rocket', ASSETS.ROCKET);
   }, []);
 
-  // --- INPUT HANDLERS ---
   useEffect(() => {
     const handleKey = (e, isDown) => {
       if (e.key === 'ArrowLeft') gameState.current.keys.left = isDown;
@@ -51,9 +50,7 @@ const StonksJump = ({ onExit }) => {
     const wrapper = containerRef.current;
     
     const handleTouch = (e) => {
-        // ALLOW CLICK
         if (e.target.closest('button') || e.target.closest('.interactive')) return;
-
         if (e.cancelable) e.preventDefault(); 
         
         const touch = e.touches[0];
@@ -130,7 +127,6 @@ const StonksJump = ({ onExit }) => {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (isPlaying && state.active) {
-        // MOVEMENT LOGIC
         if (state.touchX !== null) {
             const diff = state.touchX - (state.hero.x + state.hero.w/2);
             if (Math.abs(diff) > 5) {

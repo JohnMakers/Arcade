@@ -13,9 +13,7 @@ const PepeFrogger = ({ onExit }) => {
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-  // REMOVED: Multiplier state
   const [hasShield, setHasShield] = useState(false);
-  const [dashReady, setDashReady] = useState(true);
 
   const GRID_SIZE = 40;
   const COLS = 10;
@@ -26,10 +24,8 @@ const PepeFrogger = ({ onExit }) => {
     cameraY: 0,
     autoScrollY: 0,
     score: 0,
-    // REMOVED: Multiplier & lastMoveTime refs
     lastInputTime: 0,   // For Camera Chase Mechanic
-    consecutiveUpMoves: 0, // NEW: Track consecutive forward movements
-    dashCooldown: 0,
+    consecutiveUpMoves: 0, 
     shield: false,
     invulnerable: 0,
     hero: { gridX: 4, gridY: 13, x: 160, y: 520, targetX: 160, targetY: 520, isMoving: false },
@@ -79,36 +75,21 @@ const PepeFrogger = ({ onExit }) => {
         if (!state.running || state.hero.isMoving) return;
 
         let dx = 0; let dy = 0;
-        let isDash = e.shiftKey && state.dashCooldown <= 0;
         const key = e.key ? e.key.toLowerCase() : '';
 
         // --- INPUT LOGIC & CHASE RESET ---
-        // Requirement: Sideways/Down does NOT reset chase timer.
-        // Requirement: 2 Consecutive UP moves reset chase timer.
-        
         if (key === 'arrowup' || key === 'w') {
             dy = -1;
             state.consecutiveUpMoves++;
-            // Only reset timer if we have moved up twice in a row
             if (state.consecutiveUpMoves >= 2) {
                 state.lastInputTime = now;
-                // We don't reset count to 0 here to allow continuous resetting if they keep running up
             }
         } else {
-            // Any other move breaks the "consecutive up" streak
             state.consecutiveUpMoves = 0;
-            
             if (key === 'arrowdown' || key === 's') dy = 1;
             else if (key === 'arrowleft' || key === 'a') dx = -1;
             else if (key === 'arrowright' || key === 'd') dx = 1;
             else return;
-        }
-
-        if (isDash) {
-            dx *= 2; dy *= 2;
-            state.dashCooldown = 180;
-            setDashReady(false);
-            createParticles(state.hero.x, state.hero.y, 'cyan', 10);
         }
 
         const currentVisualGridX = Math.round(state.hero.x / GRID_SIZE);
@@ -246,25 +227,18 @@ const PepeFrogger = ({ onExit }) => {
 
         if (state.running && !gameOver) {
             state.frames++;
-            if (state.dashCooldown > 0) { state.dashCooldown -= 1 * dt; if (state.dashCooldown <= 0) setDashReady(true); }
             if (state.invulnerable > 0) { state.invulnerable -= 1 * dt; }
 
-            // --- CAMERA LOGIC UPDATED ---
-            // 1. Base auto-scroll
+            // --- CAMERA LOGIC ---
             let scrollSpeed = 0.5 + (state.score * 0.001);
-            
-            // 2. IDLE CHASE MECHANIC: 
-            // Trigger: Idle > 4000ms AND Score > 500
             if (time - state.lastInputTime > 4000 && state.score > 500) {
-                scrollSpeed += 2.5; // Aggressive Chase speed
+                scrollSpeed += 2.5; 
             }
-
             if (state.score > 100) { state.autoScrollY -= scrollSpeed * dt; }
             
             const heroCam = (state.hero.gridY * GRID_SIZE) - 400;
             const targetCam = Math.min(heroCam, state.autoScrollY);
             state.cameraY += (targetCam - state.cameraY) * 0.1 * dt;
-
 
             if (state.hero.isMoving) {
                 const lerpSpeed = 0.4 * dt; 
@@ -290,10 +264,7 @@ const PepeFrogger = ({ onExit }) => {
                     lane.elements.forEach(el => {
                         if (state.hero.x + 25 > el.x + 5 && state.hero.x + 10 < el.x + el.w - 5) {
                             if (el.isPowerup) {
-                                if (el.type === 'gold') { 
-                                    setScore(s => s + 100); // UPDATED BONUS
-                                    state.score += 100; 
-                                }
+                                if (el.type === 'gold') { setScore(s => s + 100); state.score += 100; }
                                 if (el.type === 'shield') { setHasShield(true); state.shield = true; }
                                 el.x = -9999; 
                             } else if (lane.type === 'water') {
@@ -337,7 +308,6 @@ const PepeFrogger = ({ onExit }) => {
             ctx.fillRect(0, dangerY - 20, w, 20); ctx.fillStyle = 'red'; ctx.font = '10px monospace'; ctx.fillText("! RUN !", 10, dangerY - 5);
         }
 
-        // Draw Hero with Flashing Invulnerability
         const pepe = engine.current.sprites['pepe'];
         if (state.invulnerable <= 0 || Math.floor(state.frames / 5) % 2 === 0) {
             if (state.shield) { 
@@ -362,7 +332,6 @@ const PepeFrogger = ({ onExit }) => {
 
     const hitObstacle = () => {
         if (engine.current.invulnerable > 0) return;
-
         if (engine.current.shield) {
             engine.current.shield = false; 
             setHasShield(false);
@@ -370,7 +339,6 @@ const PepeFrogger = ({ onExit }) => {
             createParticles(engine.current.hero.x, engine.current.hero.y, 'white', 20);
             return;
         }
-
         engine.current.running = false; setGameOver(true);
         if(username) supabase.from('leaderboards').insert([{game_id:'frogger', username, score: engine.current.score, address: address}]);
     };
@@ -383,11 +351,9 @@ const PepeFrogger = ({ onExit }) => {
 
   return (
     <div ref={containerRef} className="game-wrapper" tabIndex="0" style={{outline: '4px solid #00ff00'}} onClick={() => containerRef.current.focus()}>
-        <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setHasShield(false); setDashReady(true); setResetKey(k => k + 1); }} onExit={onExit} gameId="frogger" />
+        <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setHasShield(false); setResetKey(k => k + 1); }} onExit={onExit} gameId="frogger" />
         {isPlaying && !gameOver && (
             <div style={{position: 'absolute', top: 60, left: 10, pointerEvents:'none'}}>
-                <div style={{color: dashReady?'cyan':'gray', fontFamily:'monospace', fontSize:16, textShadow:'1px 1px black'}}>DASH: {dashReady ? 'READY (SHIFT)' : 'WAIT'}</div>
-                {/* REMOVED COMBO UI */}
                 {hasShield && <div style={{color:'cyan', fontSize:16, textShadow:'1px 1px black'}}>SHIELD ON</div>}
             </div>
         )}
