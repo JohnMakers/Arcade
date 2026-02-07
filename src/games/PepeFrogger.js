@@ -27,9 +27,11 @@ const PepeFrogger = ({ onExit }) => {
     autoScrollY: 0,
     score: 0,
     multiplier: 1,
-    lastMoveTime: 0,
+    lastMoveTime: 0,    // For Combo Multiplier
+    lastInputTime: 0,   // For Camera Chase Mechanic
     dashCooldown: 0,
     shield: false,
+    invulnerable: 0,    // NEW: Invulnerability timer (frames)
     hero: { gridX: 4, gridY: 13, x: 160, y: 520, targetX: 160, targetY: 520, isMoving: false },
     lanes: [], 
     lastLaneType: 'grass',
@@ -58,7 +60,6 @@ const PepeFrogger = ({ onExit }) => {
     if(containerRef.current) containerRef.current.focus();
 
     const handleInput = (e) => {
-        // ALLOW CLICKS
         if (e.target && (e.target.closest('button') || e.target.closest('.interactive'))) return;
 
         if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," ","w","a","s","d"].includes(e.key)) {
@@ -66,10 +67,13 @@ const PepeFrogger = ({ onExit }) => {
         }
         
         const state = engine.current;
+        const now = performance.now();
+
         if (!state.running && !gameOver) {
             state.running = true;
             setIsPlaying(true);
-            state.lastTime = performance.now();
+            state.lastTime = now;
+            state.lastInputTime = now;
         }
 
         if (!state.running || state.hero.isMoving) return;
@@ -84,6 +88,9 @@ const PepeFrogger = ({ onExit }) => {
         else if (key === 'arrowright' || key === 'd') dx = 1;
         else return;
 
+        // --- RESET CHASE TIMER ---
+        state.lastInputTime = now;
+
         if (isDash) {
             dx *= 2; dy *= 2;
             state.dashCooldown = 180;
@@ -91,7 +98,12 @@ const PepeFrogger = ({ onExit }) => {
             createParticles(state.hero.x, state.hero.y, 'cyan', 10);
         }
 
-        const targetGX = state.hero.gridX + dx;
+        // --- FIX: RECALCULATE GRID X FROM VISUAL POSITION ---
+        // This prevents snapping back to the center if you drifted on a log.
+        // We calculate which column we are *visually* closest to right now.
+        const currentVisualGridX = Math.round(state.hero.x / GRID_SIZE);
+        
+        const targetGX = currentVisualGridX + dx;
         const targetGY = state.hero.gridY + dy;
 
         if (targetGX >= 0 && targetGX < COLS) {
@@ -101,7 +113,6 @@ const PepeFrogger = ({ onExit }) => {
             state.hero.targetY = targetGY * GRID_SIZE;
             state.hero.isMoving = true;
 
-            const now = Date.now();
             const timeDiff = now - state.lastMoveTime;
             if (dy === -1 && timeDiff < 1000) state.multiplier = Math.min(4, state.multiplier + 0.5);
             else state.multiplier = 1;
@@ -213,9 +224,11 @@ const PepeFrogger = ({ onExit }) => {
         engine.current.autoScrollY = startCam; 
         engine.current.score = 0;
         engine.current.shield = false;
+        engine.current.invulnerable = 0;
         engine.current.lanes = [];
         engine.current.lastLaneType = 'grass';
         engine.current.lastTime = performance.now();
+        engine.current.lastInputTime = performance.now();
         for (let i=0; i<20; i++) { engine.current.lanes.push(generateLane(15 - i, 0, i < 5)); }
     };
     resetGame();
@@ -231,9 +244,25 @@ const PepeFrogger = ({ onExit }) => {
         if (state.running && !gameOver) {
             state.frames++;
             if (state.dashCooldown > 0) { state.dashCooldown -= 1 * dt; if (state.dashCooldown <= 0) setDashReady(true); }
+            if (state.invulnerable > 0) { state.invulnerable -= 1 * dt; }
+
+            // --- CAMERA LOGIC ---
+            // 1. Base auto-scroll (increases with score)
+            let scrollSpeed = 0.5 + (state.score * 0.001);
+            
+            // 2. IDLE CHASE MECHANIC: If idle > 4000ms and score > 20, speed up camera
+            if (time - state.lastInputTime > 4000 && state.score > 20) {
+                scrollSpeed += 2.0; // Chase speed
+            }
+
+            if (state.score > 100) { state.autoScrollY -= scrollSpeed * dt; }
+            
+            const heroCam = (state.hero.gridY * GRID_SIZE) - 400;
+            const targetCam = Math.min(heroCam, state.autoScrollY);
+            state.cameraY += (targetCam - state.cameraY) * 0.1 * dt;
+
 
             if (state.hero.isMoving) {
-                // Lerp is tricky with DT, but simple multiplier is fine for short distances
                 const lerpSpeed = 0.4 * dt; 
                 state.hero.x += (state.hero.targetX - state.hero.x) * lerpSpeed;
                 state.hero.y += (state.hero.targetY - state.hero.y) * lerpSpeed;
@@ -242,12 +271,6 @@ const PepeFrogger = ({ onExit }) => {
                     state.hero.x = state.hero.targetX; state.hero.y = state.hero.targetY; state.hero.isMoving = false;
                 }
             }
-
-            if (state.score > 100) { state.autoScrollY -= (0.5 + (state.score * 0.001)) * dt; }
-            
-            const heroCam = (state.hero.gridY * GRID_SIZE) - 400;
-            const targetCam = Math.min(heroCam, state.autoScrollY);
-            state.cameraY += (targetCam - state.cameraY) * 0.1 * dt;
 
             state.lanes.forEach(lane => {
                 lane.elements.forEach(el => {
@@ -258,7 +281,6 @@ const PepeFrogger = ({ onExit }) => {
                     }
                 });
                 
-                // Collision Logic (unchanged, just position updates)
                 if (lane.gridY === state.hero.gridY && !state.hero.isMoving) {
                     let onLog = false;
                     lane.elements.forEach(el => {
@@ -308,10 +330,16 @@ const PepeFrogger = ({ onExit }) => {
             ctx.fillRect(0, dangerY - 20, w, 20); ctx.fillStyle = 'red'; ctx.font = '10px monospace'; ctx.fillText("! RUN !", 10, dangerY - 5);
         }
 
+        // Draw Hero with Flashing Invulnerability
         const pepe = engine.current.sprites['pepe'];
-        if (state.shield) { ctx.strokeStyle = 'cyan'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(state.hero.x + 17, state.hero.y + 17, 25, 0, Math.PI*2); ctx.stroke(); }
-        if (pepe) ctx.drawImage(pepe, state.hero.x, state.hero.y, 35, 35);
-        else { ctx.fillStyle = 'lime'; ctx.fillRect(state.hero.x, state.hero.y, 35, 35); }
+        if (state.invulnerable <= 0 || Math.floor(state.frames / 5) % 2 === 0) {
+            if (state.shield) { 
+                ctx.strokeStyle = 'cyan'; ctx.lineWidth = 3; 
+                ctx.beginPath(); ctx.arc(state.hero.x + 17, state.hero.y + 17, 25, 0, Math.PI*2); ctx.stroke(); 
+            }
+            if (pepe) ctx.drawImage(pepe, state.hero.x, state.hero.y, 35, 35);
+            else { ctx.fillStyle = 'lime'; ctx.fillRect(state.hero.x, state.hero.y, 35, 35); }
+        }
 
         state.particles.forEach(p => { 
             p.x += p.vx * dt; 
@@ -326,11 +354,19 @@ const PepeFrogger = ({ onExit }) => {
     };
 
     const hitObstacle = () => {
+        // --- FIX: SHIELD INVULNERABILITY ---
+        // If invulnerable, ignore hit
+        if (engine.current.invulnerable > 0) return;
+
+        // If shield active, break shield and grant 60 frames (approx 1s) of invulnerability
         if (engine.current.shield) {
-            engine.current.shield = false; setHasShield(false);
+            engine.current.shield = false; 
+            setHasShield(false);
+            engine.current.invulnerable = 60; 
             createParticles(engine.current.hero.x, engine.current.hero.y, 'white', 20);
             return;
         }
+
         engine.current.running = false; setGameOver(true);
         if(username) supabase.from('leaderboards').insert([{game_id:'frogger', username, score: engine.current.score, address: address}]);
     };
