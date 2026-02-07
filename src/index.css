@@ -40,6 +40,11 @@ body {
   max-width: 95vw;
   max-height: 95vh;
   aspect-ratio: auto; /* Let the game aspect ratio dictate */
+
+  /*Disables browser zooming/panning */
+  touch-action: none; 
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Specific styling for the Menu to look nice on wide screens */
@@ -64,6 +69,8 @@ canvas {
   /* CRITICAL: Keeps pixel art sharp when scaled up */
   image-rendering: pixelated; 
   image-rendering: crisp-edges;
+
+  touch-action: none;
 }
 
 /* --- UI OVERLAYS --- */

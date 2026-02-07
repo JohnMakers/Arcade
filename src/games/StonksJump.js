@@ -6,34 +6,31 @@ import GameUI from '../components/GameUI';
 
 const StonksJump = ({ onExit }) => {
   const canvasRef = useRef(null);
+  const containerRef = useRef(null); // Added container ref for listeners
   const { username, address } = useContext(UserContext);
 
-  // UI State
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
 
-  // --- GAME STATE (Mutable) ---
   const gameState = useRef({
     hero: { x: 185, y: 300, vx: 0, vy: 0, w: 40, h: 40 },
     cameraY: 0,
     platforms: [],
     keys: { left: false, right: false },
+    touchX: null, // New: Tracks finger position
     active: true,
-    sprites: {} // Stores loaded images
+    sprites: {} 
   });
 
-  // --- 1. ROBUST ASSET LOADER ---
   useEffect(() => {
     const loadSprite = (key, src) => {
       const img = new Image();
       img.src = src;
-      img.crossOrigin = "Anonymous"; // Fix Tainted Canvas
+      img.crossOrigin = "Anonymous";
       img.onload = () => { gameState.current.sprites[key] = img; };
-      // No onerror handling needed; renderer checks if sprite exists
     };
-
     loadSprite('hero', ASSETS.STONKS_MAN);
     loadSprite('green', ASSETS.PLATFORM_GREEN);
     loadSprite('red', ASSETS.PLATFORM_RED);
@@ -41,7 +38,7 @@ const StonksJump = ({ onExit }) => {
     loadSprite('rocket', ASSETS.ROCKET);
   }, []);
 
-  // --- 2. INPUT HANDLERS (Refs = No Lag) ---
+  // --- INPUT HANDLERS ---
   useEffect(() => {
     const handleKey = (e, isDown) => {
       if (e.key === 'ArrowLeft') gameState.current.keys.left = isDown;
@@ -50,39 +47,55 @@ const StonksJump = ({ onExit }) => {
     const down = (e) => handleKey(e, true);
     const up = (e) => handleKey(e, false);
     
-    // Touch Logic
-    const touchStart = (e) => {
-        const x = e.touches[0].clientX;
-        const w = window.innerWidth;
-        if(x < w/2) gameState.current.keys.left = true;
-        else gameState.current.keys.right = true;
+    // --- TOUCH LOGIC (SWIPE/DRAG) ---
+    const wrapper = containerRef.current;
+    
+    const handleTouch = (e) => {
+        if (e.cancelable) e.preventDefault(); // Stop Scroll
+        
+        const touch = e.touches[0];
+        if (touch) {
+            // Get touch position relative to screen width
+            const rect = wrapper.getBoundingClientRect();
+            // Calculate relative X inside the container (0 to 400 scaled)
+            const relativeX = touch.clientX - rect.left;
+            const scaleX = 400 / rect.width; // Game Width is 400
+            
+            gameState.current.touchX = relativeX * scaleX;
+        }
     };
-    const touchEnd = () => {
-        gameState.current.keys.left = false;
-        gameState.current.keys.right = false;
+
+    const handleTouchEnd = (e) => {
+        if (e.cancelable) e.preventDefault();
+        gameState.current.touchX = null; // Stop moving if let go
     };
 
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
-    window.addEventListener('touchstart', touchStart);
-    window.addEventListener('touchend', touchEnd);
+    
+    if (wrapper) {
+        wrapper.addEventListener('touchstart', handleTouch, { passive: false });
+        wrapper.addEventListener('touchmove', handleTouch, { passive: false });
+        wrapper.addEventListener('touchend', handleTouchEnd, { passive: false });
+    }
 
     return () => {
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
-      window.removeEventListener('touchstart', touchStart);
-      window.removeEventListener('touchend', touchEnd);
+      if (wrapper) {
+          wrapper.removeEventListener('touchstart', handleTouch);
+          wrapper.removeEventListener('touchmove', handleTouch);
+          wrapper.removeEventListener('touchend', handleTouchEnd);
+      }
     };
   }, []);
 
-  // --- 3. GAME LOOP ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     let animationId;
 
-    // Reset Physics State
     gameState.current.active = true;
     gameState.current.hero = { x: 185, y: 400, vx: 0, vy: 0, w: 30, h: 30 };
     gameState.current.cameraY = 0;
@@ -95,16 +108,13 @@ const StonksJump = ({ onExit }) => {
     const JUMP = -11;
     const SPEED = 6;
 
-    // --- HELPER: FAULT TOLERANT DRAW ---
     const drawSprite = (spriteKey, x, y, w, h, fallbackColor) => {
         const img = gameState.current.sprites[spriteKey];
         if (img && img.complete && img.naturalWidth !== 0) {
             ctx.drawImage(img, x, y, w, h);
         } else {
-            // Fallback if image failed or loading
             ctx.fillStyle = fallbackColor;
             ctx.fillRect(x, y, w, h);
-            // Add border so it looks intentional
             ctx.strokeStyle = "white";
             ctx.lineWidth = 2;
             ctx.strokeRect(x, y, w, h);
@@ -113,27 +123,32 @@ const StonksJump = ({ onExit }) => {
 
     const loop = () => {
       const state = gameState.current;
-      
-      // 1. CLEAR (Dark Grey Background)
       ctx.fillStyle = "#1a1a1a";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // 2. LOGIC (Only when "isPlaying")
       if (isPlaying && state.active) {
-        // Move
-        if (state.keys.left) state.hero.vx = -SPEED;
-        else if (state.keys.right) state.hero.vx = SPEED;
-        else state.hero.vx = 0;
+        // MOVEMENT LOGIC: Keyboard OR Touch
+        if (state.touchX !== null) {
+            // Smoothly move towards finger
+            const diff = state.touchX - (state.hero.x + state.hero.w/2);
+            if (Math.abs(diff) > 5) {
+                state.hero.vx = diff > 0 ? SPEED : -SPEED;
+            } else {
+                state.hero.vx = 0;
+            }
+        } else {
+            if (state.keys.left) state.hero.vx = -SPEED;
+            else if (state.keys.right) state.hero.vx = SPEED;
+            else state.hero.vx = 0;
+        }
 
         state.hero.vy += GRAVITY;
         state.hero.x += state.hero.vx;
         state.hero.y += state.hero.vy;
 
-        // Wrap
         if (state.hero.x > canvas.width) state.hero.x = -state.hero.w;
         if (state.hero.x < -state.hero.w) state.hero.x = canvas.width;
 
-        // Collision (Feet only)
         if (state.hero.vy > 0) {
             state.platforms.forEach(p => {
                 if (!p.broken &&
@@ -146,7 +161,7 @@ const StonksJump = ({ onExit }) => {
                         p.broken = true;
                         state.hero.vy = 0;
                     } else if (p.hasRocket) {
-                        state.hero.vy = -35; // MOON
+                        state.hero.vy = -35; 
                     } else {
                         state.hero.vy = JUMP;
                     }
@@ -154,17 +169,15 @@ const StonksJump = ({ onExit }) => {
             });
         }
 
-        // Camera
         if (state.hero.y < state.cameraY + 300) {
             state.cameraY = state.hero.y - 300;
             setScore(Math.floor(Math.abs(state.cameraY)));
         }
 
-        // Generate
         state.platforms.sort((a,b) => a.y - b.y);
         const highest = state.platforms[0].y;
         if (highest > state.cameraY - 700) {
-            const gap = Math.random() * 80 + 40; // 40-120px Gap
+            const gap = Math.random() * 80 + 40; 
             const typeR = Math.random();
             let type = 'green';
             if (typeR > 0.8) type = 'blue';
@@ -180,10 +193,8 @@ const StonksJump = ({ onExit }) => {
             });
         }
         
-        // Cleanup
         state.platforms = state.platforms.filter(p => p.y < state.cameraY + canvas.height + 100);
 
-        // Die
         if (state.hero.y > state.cameraY + canvas.height) {
             state.active = false;
             setGameOver(true);
@@ -191,7 +202,6 @@ const StonksJump = ({ onExit }) => {
         }
       }
 
-      // 3. DRAW (Always render, even if paused)
       ctx.save();
       ctx.translate(0, -state.cameraY);
 
@@ -201,11 +211,9 @@ const StonksJump = ({ onExit }) => {
              p.x += p.vx;
              if (p.x < 0 || p.x > canvas.width - p.w) p.vx *= -1;
           }
-          
           let color = '#00ff00';
           if (p.type === 'red') color = 'red';
           if (p.type === 'blue') color = 'cyan';
-          
           drawSprite(p.type, p.x, p.y, p.w, p.h, color);
           if (p.hasRocket) drawSprite('rocket', p.x + 20, p.y - 30, 30, 30, 'gold');
       });
@@ -218,23 +226,15 @@ const StonksJump = ({ onExit }) => {
 
     loop();
     return () => cancelAnimationFrame(animationId);
-  }, [isPlaying, resetKey]); // Only re-run if game status changes hard
+  }, [isPlaying, resetKey]); 
 
-  // Countdown
   useEffect(() => {
     if (!gameOver) setTimeout(() => setIsPlaying(true), 3000);
   }, [resetKey, gameOver]);
 
-  const handleRestart = () => {
-    setGameOver(false);
-    setIsPlaying(false); // Triggers countdown
-    setScore(0);
-    setResetKey(prev => prev + 1);
-  };
-
   return (
-    <div className="game-wrapper">
-        <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={handleRestart} onExit={onExit} gameId="doodle" />
+    <div ref={containerRef} className="game-wrapper">
+        <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setResetKey(prev => prev + 1); }} onExit={onExit} gameId="doodle" />
         <canvas ref={canvasRef} width={400} height={600} />
     </div>
   );
