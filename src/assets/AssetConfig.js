@@ -1,30 +1,35 @@
 // Centralized Asset Management
 export const ASSETS = {
-  // Game 1: Flappy Doge
+  // --- FLAPPY DOGE ---
   DOGE_HERO: "https://upload.wikimedia.org/wikipedia/en/5/5f/Original_Doge_meme.jpg",
   RED_CANDLE: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Infobox_info_icon.svg/480px-Infobox_info_icon.svg.png", 
   
-  // Game 2: Pepe Frogger (Meme Textures Edition)
+  // --- PEPE FROGGER (Overhauled) ---
   PEPE_HERO: "https://upload.wikimedia.org/wikipedia/en/8/87/Pepe_the_Frog.jpg",
-  // Vehicles
+  
+  // Enemies
   NORMIE_CAR: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/480px-Cat03.jpg", 
   TROLL_BUS: "https://upload.wikimedia.org/wikipedia/en/9/9a/Trollface_non-free.png", 
-  // Water
-  NYAN_LOG: "https://upload.wikimedia.org/wikipedia/en/e/ed/Nyan_cat_250px_frame.PNG",
+  MATRIX_GLITCH: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/480px-Apple_logo_black.svg.png", // Placeholder for glitch
   
-  // New Terrain Textures (Seamless)
-  TEXTURE_GRASS: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Matrix_code.svg/512px-Matrix_code.svg.png", // Matrix Rain
-  TEXTURE_ROAD: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Asphalt_texture.jpg/640px-Asphalt_texture.jpg", // Deep Fried-ish
-  TEXTURE_WATER: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Blue_noise_2.png/640px-Blue_noise_2.png", // Static/Vaporwave noise
+  // Environment
+  NYAN_LOG: "https://upload.wikimedia.org/wikipedia/en/e/ed/Nyan_cat_250px_frame.PNG",
+  TEXTURE_GRASS: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Matrix_code.svg/512px-Matrix_code.svg.png", 
+  TEXTURE_ROAD: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Asphalt_texture.jpg/640px-Asphalt_texture.jpg", 
+  TEXTURE_WATER: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Blue_noise_2.png/640px-Blue_noise_2.png", 
+  
+  // Powerups
+  GOLDEN_PEPE: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Rocket_emoji.svg/480px-Rocket_emoji.svg.png", // Using Rocket as placeholder for Rare Pepe
+  TENDIE_SHIELD: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Warning_sign.svg/480px-Warning_sign.svg.png", // Shield icon
 
-  // Game 3: Stonks Jump
+  // --- STONKS JUMP ---
   STONKS_MAN: "https://upload.wikimedia.org/wikipedia/en/b/b9/Surreal_memes_stonks.png",
   PLATFORM_GREEN: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Green_rectangle.svg/480px-Green_rectangle.svg.png", 
   PLATFORM_RED: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Infobox_info_icon.svg/480px-Infobox_info_icon.svg.png",
   PLATFORM_BLUE: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Blue_rectangle.svg/480px-Blue_rectangle.svg.png",
   ROCKET: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Rocket_emoji.svg/480px-Rocket_emoji.svg.png",
   
-  // Game 4: Wojak Siege
+  // --- WOJAK SIEGE ---
   WOJAK_HERO: "https://upload.wikimedia.org/wikipedia/en/9/9a/Wojak_cropped.jpg",
   CRINGE_TARGET: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/SNice.svg/1200px-SNice.svg.png", 
 };
