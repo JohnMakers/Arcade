@@ -8,92 +8,89 @@ const FlappyDoge = ({ onExit }) => {
   const { username } = useContext(UserContext);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
-  const [feedback, setFeedback] = useState(null); // "WOW", "MUCH SCORE"
+  const [imagesLoaded, setImagesLoaded] = useState(false);
 
-  // Game Constants
-  const GRAVITY = 0.6;
-  const JUMP = -8; // Doge Jump power
-  const PIPE_SPEED_BASE = 3;
-  
+  // Load Assets Hook
+  const sprites = useRef({});
   useEffect(() => {
+    const loadImages = async () => {
+      const doge = new Image(); doge.src = ASSETS.DOGE_HERO;
+      const pipe = new Image(); pipe.src = ASSETS.RED_CANDLE;
+      
+      await Promise.all([
+        new Promise(r => doge.onload = r),
+        new Promise(r => pipe.onload = r)
+      ]);
+      
+      sprites.current = { doge, pipe };
+      setImagesLoaded(true);
+    };
+    loadImages();
+  }, []);
+
+  useEffect(() => {
+    if (!imagesLoaded) return;
+    
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     let animationFrameId;
 
-    // Assets
-    const heroImg = new Image(); heroImg.src = ASSETS.DOGE_HERO;
-    const pipeImg = new Image(); pipeImg.src = ASSETS.RED_CANDLE;
-
-    // State
-    let bird = { x: 50, y: 150, velocity: 0, width: 30, height: 30 };
+    let bird = { x: 50, y: 150, velocity: 0, width: 40, height: 40 };
     let pipes = [];
     let frameCount = 0;
     let gameScore = 0;
-    let speed = PIPE_SPEED_BASE;
+    let speed = 3;
     let isRunning = true;
 
-    const spawnPipe = () => {
-      // Scaling Logic [cite: 8, 9]
-      const difficultyMultiplier = Math.floor(gameScore / 10);
-      let gap = Math.max(120, 200 - (difficultyMultiplier * 2)); // Hard Cap at 120px
-      
-      const minPipeHeight = 50;
-      const maxPipeHeight = canvas.height - gap - minPipeHeight;
-      const topHeight = Math.floor(Math.random() * (maxPipeHeight - minPipeHeight + 1)) + minPipeHeight;
+    // Constants
+    const GRAVITY = 0.5;
+    const JUMP = -8;
 
-      pipes.push({
-        x: canvas.width,
-        width: 50,
-        topHeight: topHeight,
-        gap: gap,
-        passed: false,
-        // Oscillation Logic [cite: 11]
-        isMoving: gameScore >= 50,
-        moveDir: 1,
-        baseY: topHeight
-      });
+    const spawnPipe = () => {
+       // Requirement: Scaling Gap (Start 200px, Cap at 120px)
+       const difficulty = Math.min(80, Math.floor(gameScore / 10) * 2);
+       const gap = 200 - difficulty; 
+       
+       const minHeight = 50;
+       const maxHeight = canvas.height - gap - minHeight;
+       const topHeight = Math.floor(Math.random() * (maxHeight - minHeight)) + minHeight;
+
+       pipes.push({
+         x: canvas.width,
+         width: 50,
+         topHeight,
+         gap,
+         passed: false
+       });
     };
 
     const loop = () => {
       if (!isRunning) return;
-
-      // Update Difficulty Speed [cite: 8]
-      speed = PIPE_SPEED_BASE * (1 + (Math.floor(gameScore / 10) * 0.05));
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Background Transition [cite: 51]
-      ctx.fillStyle = gameScore > 20 ? "#000033" : "#f0f0f0"; // Simple color switch for now
+      // Background
+      ctx.fillStyle = gameScore > 20 ? "#000033" : "#f0f0f0"; // Office to Space transition
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Bird Physics
+      // Bird
       bird.velocity += GRAVITY;
       bird.y += bird.velocity;
-      ctx.drawImage(heroImg, bird.x, bird.y, bird.width, bird.height);
+      ctx.drawImage(sprites.current.doge, bird.x, bird.y, bird.width, bird.height);
 
-      // Pipe Logic
+      // Pipes
       if (frameCount % 100 === 0) spawnPipe();
 
       pipes.forEach(pipe => {
-        // Oscillation [cite: 11]
-        if (pipe.isMoving) {
-            pipe.topHeight += pipe.moveDir;
-            if (Math.abs(pipe.topHeight - pipe.baseY) > 30) pipe.moveDir *= -1;
-        }
-
         pipe.x -= speed;
+        
+        // Draw Red Candles
+        ctx.fillStyle = "red";
+        // Top Pipe
+        ctx.drawImage(sprites.current.pipe, pipe.x, 0, pipe.width, pipe.topHeight);
+        // Bottom Pipe
+        ctx.drawImage(sprites.current.pipe, pipe.x, pipe.topHeight + pipe.gap, pipe.width, canvas.height);
 
-        // Draw Top Pipe (Upside down candle)
-        ctx.save();
-        ctx.translate(pipe.x + pipe.width/2, pipe.topHeight/2);
-        ctx.scale(1, -1);
-        ctx.drawImage(pipeImg, -pipe.width/2, -pipe.topHeight/2, pipe.width, pipe.topHeight);
-        ctx.restore();
-
-        // Draw Bottom Pipe
-        ctx.drawImage(pipeImg, pipe.x, pipe.topHeight + pipe.gap, pipe.width, canvas.height - (pipe.topHeight + pipe.gap));
-
-        // Collision
+        // Collision (Precise Box)
         if (
           bird.x < pipe.x + pipe.width &&
           bird.x + bird.width > pipe.x &&
@@ -107,58 +104,53 @@ const FlappyDoge = ({ onExit }) => {
           gameScore++;
           setScore(gameScore);
           pipe.passed = true;
-          // Visual Feedback [cite: 44]
-          if(gameScore % 5 === 0) setFeedback("STONKS!");
-          setTimeout(() => setFeedback(null), 1000);
+          // Speed Scaling: Increase by 5% every 10 points
+          if (gameScore % 10 === 0) speed = speed * 1.05; 
         }
       });
 
-      // Remove off-screen pipes
-      pipes = pipes.filter(p => p.x + p.width > 0);
-
-      // Floor/Ceiling collision
-      if (bird.y + bird.height > canvas.height || bird.y < 0) endGame();
+      if (bird.y > canvas.height || bird.y < 0) endGame();
 
       frameCount++;
       if (isRunning) animationFrameId = requestAnimationFrame(loop);
     };
 
-    const endGame = async () => {
+    const endGame = () => {
       isRunning = false;
       setGameOver(true);
-      // Save Score to Supabase 
-      await supabase.from('leaderboards').insert([{ game_id: 'flappy', username: username, score: gameScore }]);
+      if (username) {
+          supabase.from('leaderboards').insert([{ game_id: 'flappy', username, score: gameScore }]).then(console.log);
+      }
     };
 
-    const handleInput = () => {
-        bird.velocity = JUMP;
-    };
-
-    window.addEventListener('keydown', handleInput);
-    window.addEventListener('mousedown', handleInput);
-    
+    const jump = () => bird.velocity = JUMP;
+    window.addEventListener('mousedown', jump);
+    window.addEventListener('keydown', jump);
     loop();
 
     return () => {
-        window.removeEventListener('keydown', handleInput);
-        window.removeEventListener('mousedown', handleInput);
-        cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('mousedown', jump);
+      window.removeEventListener('keydown', jump);
+      cancelAnimationFrame(animationFrameId);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [imagesLoaded, username]);
 
   return (
     <div>
-       {/* UI Overlay */}
-       <div style={{position: 'absolute', top: 10, left: 10, color: 'white'}}>SCORE: {score}</div>
-       {feedback && <div className="floating-text" style={{top: '40%', left: '40%'}}>{feedback}</div>}
-       
-       {gameOver && (
-           <div className="game-over-overlay" style={{position: 'absolute', top: '30%', left: '30%', background: 'rgba(0,0,0,0.8)', padding: 20}}>
-               <h1 style={{color: 'red'}}>SKILL ISSUE [cite: 45]</h1>
-               <button className="btn-meme" onClick={onExit}>MENU</button>
-           </div>
-       )}
-       <canvas ref={canvasRef} width={400} height={600} className="game-canvas" />
+      <div style={{position: 'absolute', top: 10, left: 10, color: 'white', fontFamily: 'Impact'}}>
+        SCORE: {score}
+      </div>
+      {gameOver && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          background: 'rgba(0,0,0,0.9)', color: 'red', padding: '20px', textAlign: 'center', border: '2px solid red'
+        }}>
+          <h1>SKILL ISSUE</h1>
+          <button className="btn-meme" onClick={onExit}>MAIN MENU</button>
+        </div>
+      )}
+      {!imagesLoaded && <h1 style={{color:'white'}}>LOADING MEMES...</h1>}
+      <canvas ref={canvasRef} width={400} height={600} className="game-canvas" />
     </div>
   );
 };

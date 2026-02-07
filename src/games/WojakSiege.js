@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useContext } from 'react';
 import Matter from 'matter-js';
 import { supabase } from '../lib/supabaseClient';
 import { UserContext } from '../context/UserContext';
+import { ASSETS } from '../assets/AssetConfig';
 
 const WojakSiege = ({ onExit }) => {
     const sceneRef = useRef(null);
@@ -9,7 +10,7 @@ const WojakSiege = ({ onExit }) => {
     const [score, setScore] = useState(0);
 
     useEffect(() => {
-        const { Engine, Render, Runner, World, Bodies, Mouse, MouseConstraint, Composite } = Matter;
+        const { Engine, Render, Runner, World, Bodies, Mouse, MouseConstraint, Events, Composite } = Matter;
 
         const engine = Engine.create();
         const render = Render.create({
@@ -23,42 +24,52 @@ const WojakSiege = ({ onExit }) => {
             }
         });
 
-        // Boundaries
+        // Ground
         const ground = Bodies.rectangle(400, 590, 810, 60, { isStatic: true, render: { fillStyle: '#444'} });
         World.add(engine.world, ground);
 
-        // Procedural Fort Generator [cite: 27, 28]
-        const generateFort = (offsetX) => {
-            const stack = Matter.Composites.stack(offsetX, 300, 3, 4, 0, 0, function(x, y) {
-                // Randomize material (Wood, Stone, Ice)
-                const colors = ['#8B4513', '#808080', '#ADD8E6'];
-                return Bodies.rectangle(x, y, 40, 40, { 
-                    render: { fillStyle: colors[Math.floor(Math.random()*3)] }
-                });
-            });
-            
-            // Add "Cringe" Target (The Pig) [cite: 65]
-            const pig = Bodies.circle(offsetX + 60, 250, 20, {
-                label: 'pig',
-                render: { fillStyle: 'red' } // Replace with sprite later
-            });
-            
-            World.add(engine.world, [stack, pig]);
+        // Procedural Stack Generator
+        const createFort = (x, y) => {
+            const stack = Composite.create();
+            // Create a pyramid or stack of 6-10 blocks
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const block = Bodies.rectangle(x + j * 45, y - i * 45, 40, 40, {
+                        render: { 
+                            sprite: { texture: ASSETS.RED_CANDLE, xScale: 0.1, yScale: 0.1 } // Placeholder Texture
+                        }
+                    });
+                    Composite.add(stack, block);
+                }
+            }
+            return stack;
         };
 
-        generateFort(500);
+        const fort = createFort(500, 500);
+        World.add(engine.world, fort);
 
-        // Slingshot Logic (Simplified)
-        let rock = Bodies.circle(150, 450, 20, { density: 0.004 });
-        let anchor = { x: 150, y: 450 };
-        let elastic = Matter.Constraint.create({ 
+        // The "Cringe" Target
+        const target = Bodies.circle(550, 400, 25, {
+            label: 'cringe_target',
+            render: { sprite: { texture: ASSETS.CRINGE_TARGET, xScale: 0.2, yScale: 0.2 } }
+        });
+        World.add(engine.world, target);
+
+        // Wojak Slingshot
+        const rock = Bodies.circle(150, 450, 20, { 
+            density: 0.004,
+            render: { sprite: { texture: ASSETS.WOJAK_HERO, xScale: 0.15, yScale: 0.15 } }
+        });
+        const anchor = { x: 150, y: 450 };
+        const elastic = Matter.Constraint.create({ 
             pointA: anchor, 
             bodyB: rock, 
-            stiffness: 0.05
+            stiffness: 0.05,
+            length: 10
         });
         World.add(engine.world, [rock, elastic]);
 
-        // Mouse Control
+        // Mouse
         const mouse = Mouse.create(render.canvas);
         const mouseConstraint = MouseConstraint.create(engine, {
             mouse: mouse,
@@ -66,15 +77,18 @@ const WojakSiege = ({ onExit }) => {
         });
         World.add(engine.world, mouseConstraint);
 
-        // Collision/Win Check Logic
-        Matter.Events.on(engine, 'collisionStart', (event) => {
-             event.pairs.forEach((pair) => {
-                 if(pair.bodyA.label === 'pig' || pair.bodyB.label === 'pig') {
-                     // Check impact velocity to "destroy" pig
-                     // If destroyed: score++, remove pig, pan camera, generate new fort [cite: 29]
-                     setScore(s => s + 100);
-                 }
-             });
+        // Collision Logic (Win Condition)
+        Events.on(engine, 'collisionStart', (event) => {
+            event.pairs.forEach((pair) => {
+                if (pair.bodyA.label === 'cringe_target' || pair.bodyB.label === 'cringe_target') {
+                    // Check if hit hard enough
+                    const impact = pair.collision.depth;
+                    if (impact > 2) {
+                        setScore(s => s + 100);
+                        // In a full version, we'd remove the body here
+                    }
+                }
+            });
         });
 
         Runner.run(Runner.create(), engine);
@@ -87,7 +101,13 @@ const WojakSiege = ({ onExit }) => {
         };
     }, []);
 
-    return <div ref={sceneRef} />;
+    return (
+        <div>
+            <div style={{position: 'absolute', top: 10, left: 10, color: 'white'}}>SCORE: {score} (PHYSICS BETA)</div>
+            <button className="btn-meme" style={{position: 'absolute', top: 10, right: 10}} onClick={onExit}>EXIT</button>
+            <div ref={sceneRef} />
+        </div>
+    );
 };
 
 export default WojakSiege;

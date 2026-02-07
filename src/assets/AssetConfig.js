@@ -1,30 +1,22 @@
 // Centralized Asset Management
 export const ASSETS = {
   // Game 1: Flappy Doge
-  DOGE_HERO: "https://i.imgur.com/HF729qJ.png", // Placeholder Doge
-  RED_CANDLE: "https://i.imgur.com/Gj3H9zF.png", // Placeholder Red Candle
-  BG_OFFICE: "https://i.imgur.com/8Q6n9wB.png", 
-  BG_SPACE: "https://i.imgur.com/JjF6z9A.png",
-
+  DOGE_HERO: "https://upload.wikimedia.org/wikipedia/en/5/5f/Original_Doge_meme.jpg",
+  RED_CANDLE: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Infobox_info_icon.svg/480px-Infobox_info_icon.svg.png", // Red bar placeholder
+  
   // Game 2: Pepe Frogger
-  PEPE_HERO: "https://i.imgur.com/qK4h1jL.png", // Placeholder Pepe
-  NORMIE_CAR: "https://i.imgur.com/4l3z9kM.png",
-  TROLL_BUS: "https://i.imgur.com/8x8z9kM.png",
-  NYAN_LOG: "https://i.imgur.com/5j5z9kM.png",
-  SAFE_ZONE: "https://i.imgur.com/9k9z9kM.png", // Twitch/Discord Logo
-
+  PEPE_HERO: "https://upload.wikimedia.org/wikipedia/en/8/87/Pepe_the_Frog.jpg",
+  NORMIE_CAR: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/480px-Cat03.jpg", // Normie Cat
+  NYAN_LOG: "https://upload.wikimedia.org/wikipedia/en/e/ed/Nyan_cat_250px_frame.PNG",
+  
   // Game 3: Stonks Jump
-  STONKS_MAN: "https://i.imgur.com/2m2z9kM.png",
-  BUY_CANDLE: "https://i.imgur.com/3n3z9kM.png", // Green Candle
-  SELL_CANDLE: "https://i.imgur.com/4o4z9kM.png", // Red Candle
-
+  STONKS_MAN: "https://upload.wikimedia.org/wikipedia/en/b/b9/Surreal_memes_stonks.png",
+  BUY_CANDLE: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Green_check.svg/480px-Green_check.svg.png", 
+  
   // Game 4: Wojak Siege
-  WOJAK_HERO: "https://i.imgur.com/5p5z9kM.png",
-  CRINGE_TARGET: "https://i.imgur.com/6q6z9kM.png", // Clown Emoji
-  WOOD_BLOCK: "https://i.imgur.com/7r7z9kM.png", // Keyboard Key
-  STONE_BLOCK: "https://i.imgur.com/8s8z9kM.png", // Gaming Chair
+  WOJAK_HERO: "https://upload.wikimedia.org/wikipedia/en/9/9a/Wojak_cropped.jpg",
+  CRINGE_TARGET: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/SNice.svg/1200px-SNice.svg.png", // Clown-like
 };
-
 export const SOUNDS = {
   // Placeholder sound logic would go here
 };
