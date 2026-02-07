@@ -9,9 +9,12 @@ export const ASSETS = {
   NORMIE_CAR: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/480px-Cat03.jpg", 
   NYAN_LOG: "https://upload.wikimedia.org/wikipedia/en/e/ed/Nyan_cat_250px_frame.PNG",
   
-  // Game 3: Stonks Jump
+  // Game 3: Stonks Jump (UPDATED)
   STONKS_MAN: "https://upload.wikimedia.org/wikipedia/en/b/b9/Surreal_memes_stonks.png",
-  BUY_CANDLE: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Green_check.svg/480px-Green_check.svg.png", 
+  PLATFORM_GREEN: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Green_rectangle.svg/480px-Green_rectangle.svg.png", 
+  PLATFORM_RED: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Infobox_info_icon.svg/480px-Infobox_info_icon.svg.png",
+  PLATFORM_BLUE: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Blue_rectangle.svg/480px-Blue_rectangle.svg.png",
+  ROCKET: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Rocket_emoji.svg/480px-Rocket_emoji.svg.png",
   
   // Game 4: Wojak Siege
   WOJAK_HERO: "https://upload.wikimedia.org/wikipedia/en/9/9a/Wojak_cropped.jpg",
