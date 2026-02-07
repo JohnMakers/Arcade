@@ -1,84 +1,83 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-const GameUI = ({ score, gameOver, onRestart, onExit, gameId }) => {
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaderboard, setLeaderboard] = useState([]);
+const GameUI = ({ score, gameOver, onRestart, onExit, gameId, isPlaying }) => {
   const [countdown, setCountdown] = useState(3);
-  const [gameStarted, setGameStarted] = useState(false);
+  const [showScores, setShowScores] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]);
+
+  // Reset countdown when game starts or restarts
+  useEffect(() => {
+    if (!isPlaying && !gameOver) {
+      setCountdown(3);
+    }
+  }, [isPlaying, gameOver]);
 
   // Countdown Logic
   useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    if (countdown > 0 && !isPlaying && !gameOver) {
+      const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
       return () => clearTimeout(timer);
-    } else {
-      setGameStarted(true);
     }
-  }, [countdown]);
+  }, [countdown, isPlaying, gameOver]);
 
-  // Fetch Leaderboard when requested
-  useEffect(() => {
-    if (showLeaderboard) {
-      const fetchScores = async () => {
-        const { data } = await supabase
-          .from('leaderboards')
-          .select('*')
-          .eq('game_id', gameId)
-          .order('score', { ascending: false })
-          .limit(5);
-        setLeaderboard(data || []);
-      };
-      fetchScores();
-    }
-  }, [showLeaderboard, gameId]);
+  const fetchScores = async () => {
+    setShowScores(true);
+    const { data } = await supabase
+      .from('leaderboards')
+      .select('username, score')
+      .eq('game_id', gameId)
+      .order('score', { ascending: false })
+      .limit(5);
+    setLeaderboard(data || []);
+  };
 
-  // Render Countdown
-  if (!gameStarted) {
+  // 1. HUD (Always visible during play)
+  if (isPlaying && !gameOver) {
+    return <div className="hud-score">SCORE: {score}</div>;
+  }
+
+  // 2. Countdown (Transparent Overlay)
+  if (countdown > 0 && !gameOver) {
     return (
-      <div className="overlay-container">
-        <h1 className="countdown-text">{countdown === 0 ? "GO!" : countdown}</h1>
+      <div className="overlay-layer">
+        <h1 className="countdown-number">{countdown}</h1>
+        <p style={{color:'white', marginTop: 20}}>GET READY</p>
       </div>
     );
   }
 
-  // Render Game Over Menu
+  // 3. Game Over Menu
   if (gameOver) {
     return (
-      <div className="overlay-container game-over-bg">
-        <h1 className="meme-text shake">YOU DIED</h1>
-        <h2 style={{ color: 'yellow' }}>SCORE: {score}</h2>
-        
-        {!showLeaderboard ? (
-          <div className="menu-buttons">
+      <div className="overlay-layer interactive">
+        <h1 style={{color: 'red', fontSize: '3rem', margin: 0}}>REKT</h1>
+        <h2 style={{color: 'yellow'}}>FINAL SCORE: {score}</h2>
+
+        {!showScores ? (
+          <>
             <button className="btn-meme" onClick={onRestart}>AGANE (Restart)</button>
-            <button className="btn-meme" onClick={() => setShowLeaderboard(true)}>WHO IS CHAD? (Scores)</button>
-            <button className="btn-meme red" onClick={onExit}>RAGE QUIT (Exit)</button>
-          </div>
+            <button className="btn-meme" style={{background:'#ff00ff', color:'white'}} onClick={fetchScores}>LEADERBOARD</button>
+            <button className="btn-meme" style={{background:'#333', color:'white'}} onClick={onExit}>RAGE QUIT</button>
+          </>
         ) : (
-          <div className="leaderboard-panel">
+          <div style={{background: '#222', padding: 20, border: '4px solid gold'}}>
             <h3>CHAD LIST</h3>
-            <ul>
-              {leaderboard.map((entry, i) => (
-                <li key={i}>
-                  <span>#{i + 1} {entry.username}</span>
-                  <span>{entry.score}</span>
+            <ul style={{listStyle:'none', padding:0, textAlign:'left', color:'white'}}>
+              {leaderboard.map((p, i) => (
+                <li key={i} style={{borderBottom:'1px dashed #555', padding:'5px 0'}}>
+                  #{i+1} {p.username}: <span style={{color:'gold'}}>{p.score}</span>
                 </li>
               ))}
             </ul>
-            <button className="btn-meme" onClick={() => setShowLeaderboard(false)}>BACK</button>
+            <button className="btn-meme" onClick={() => setShowScores(false)}>BACK</button>
           </div>
         )}
       </div>
     );
   }
 
-  // Render HUD (Score Tracker)
-  return (
-    <div className="hud-container">
-      <div className="score-badge">SCORE: {score}</div>
-    </div>
-  );
+  return null;
 };
 
 export default GameUI;

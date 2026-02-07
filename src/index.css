@@ -2,135 +2,96 @@
 
 body {
   margin: 0;
-  font-family: 'Press Start 2P', cursive; /* Retro Gaming Font */
-  background-color: #1a1a1a;
+  background-color: #111;
   color: #00ff00;
   overflow: hidden;
-  user-select: none;
+  touch-action: none; /* Prevents scrolling on mobile while playing */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
 }
 
-/* --- OVERLAYS --- */
-.overlay-container {
+/* --- GAME CONTAINER --- */
+.game-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 500px; /* Max width for desktop readability */
+  max-height: 900px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000;
+  box-shadow: 0 0 30px rgba(0, 255, 0, 0.2);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Keeps the game aspect ratio correct */
+}
+
+/* --- UI OVERLAYS --- */
+.overlay-layer {
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  pointer-events: all; /* Blocks clicks to game */
-  z-index: 100;
+  align-items: center;
+  z-index: 20;
+  pointer-events: none; /* Let clicks pass through unless it's game over */
 }
 
-.game-over-bg {
-  background: rgba(0, 0, 0, 0.85);
+.overlay-layer.interactive {
+  pointer-events: all;
+  background: rgba(0, 0, 0, 0.85); /* Dark background only for menus */
   backdrop-filter: blur(5px);
 }
 
-.hud-container {
+.countdown-number {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 8rem;
+  color: #fff;
+  text-shadow: 4px 4px 0px #ff00ff;
+  animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite alternate;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.8); opacity: 0.8; }
+  to { transform: scale(1.2); opacity: 1; }
+}
+
+.hud-score {
   position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 90;
-  pointer-events: none;
-}
-
-.score-badge {
-  background: rgba(0, 0, 0, 0.7);
-  border: 4px solid #00ff00;
-  padding: 15px;
-  font-size: 20px;
-  color: white;
-  text-shadow: 2px 2px 0px black;
-  transform: skew(-10deg);
-}
-
-.countdown-text {
-  font-size: 120px;
-  color: yellow;
-  text-shadow: 5px 5px 0px red;
-  animation: pulse 1s infinite;
-}
-
-/* --- MEME BUTTONS --- */
-.btn-meme {
-  background: #ff00ff;
-  color: white;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: 'Press Start 2P';
-  font-size: 14px;
-  padding: 15px 25px;
-  border: 4px solid white;
-  cursor: pointer;
-  margin: 10px;
-  box-shadow: 5px 5px 0px black;
-  transition: transform 0.1s;
-}
-
-.btn-meme:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 7px 7px 0px black;
-}
-
-.btn-meme.red {
-  background: #ff3333;
-}
-
-/* --- LEADERBOARD --- */
-.leaderboard-panel {
-  background: #222;
-  border: 4px solid gold;
-  padding: 20px;
-  width: 300px;
-  text-align: center;
-}
-.leaderboard-panel ul {
-  list-style: none;
-  padding: 0;
-  text-align: left;
-}
-.leaderboard-panel li {
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px dashed #555;
-  padding: 10px 0;
+  font-size: 1.5rem;
   color: white;
+  text-shadow: 2px 2px 0 #000;
+  z-index: 10;
+  white-space: nowrap;
 }
 
-/* --- ANIMATIONS --- */
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+/* --- BUTTONS --- */
+.btn-meme {
+  background: #00ff00;
+  color: black;
+  border: 4px solid white;
+  padding: 15px 30px;
+  font-family: 'Press Start 2P';
+  font-size: 1rem;
+  margin: 10px;
+  cursor: pointer;
+  box-shadow: 6px 6px 0px #ff00ff;
 }
 
-.shake {
-  animation: shake 0.5s;
-}
-@keyframes shake {
-  0% { transform: translate(1px, 1px) rotate(0deg); }
-  10% { transform: translate(-1px, -2px) rotate(-1deg); }
-  20% { transform: translate(-3px, 0px) rotate(1deg); }
-  30% { transform: translate(3px, 2px) rotate(0deg); }
-  40% { transform: translate(1px, -1px) rotate(1deg); }
-  50% { transform: translate(-1px, 2px) rotate(-1deg); }
-  60% { transform: translate(-3px, 1px) rotate(0deg); }
-  70% { transform: translate(3px, 1px) rotate(-1deg); }
-  80% { transform: translate(-1px, -1px) rotate(1deg); }
-  90% { transform: translate(1px, 2px) rotate(0deg); }
-  100% { transform: translate(1px, -2px) rotate(-1deg); }
-}
-
-/* --- UTILS --- */
-.arcade-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  border: 5px solid #ff00ff;
-}
-
-.game-canvas {
-  border: 4px solid #00ff00;
-  box-shadow: 0 0 20px #00ff00;
-  background-color: #000;
+.btn-meme:active {
+  transform: translate(2px, 2px);
+  box-shadow: 4px 4px 0px #ff00ff;
 }
