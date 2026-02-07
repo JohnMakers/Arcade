@@ -38,11 +38,11 @@ const GameUI = ({ score, gameOver, onRestart, onExit, gameId, isPlaying }) => {
   }
 
   // 2. Countdown (Transparent Overlay)
-  if (countdown > 0 && !gameOver) {
+if (countdown > 0 && !gameOver) {
     return (
       <div className="overlay-layer">
-        <h1 className="countdown-number">{countdown}</h1>
-        <p style={{color:'white', marginTop: 20}}>GET READY</p>
+        <h1 className="meme-countdown">{countdown}</h1>
+        <h2 className="meme-subtitle">GET READY BOI</h2>
       </div>
     );
   }
