@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/Arcade/static/css/main.d4ec243c.css",
-    "main.js": "/Arcade/static/js/main.bf5fd3ba.js",
+    "main.js": "/Arcade/static/js/main.e1974721.js",
     "static/js/453.8611574e.chunk.js": "/Arcade/static/js/453.8611574e.chunk.js",
     "index.html": "/Arcade/index.html",
     "main.d4ec243c.css.map": "/Arcade/static/css/main.d4ec243c.css.map",
-    "main.bf5fd3ba.js.map": "/Arcade/static/js/main.bf5fd3ba.js.map",
+    "main.e1974721.js.map": "/Arcade/static/js/main.e1974721.js.map",
     "453.8611574e.chunk.js.map": "/Arcade/static/js/453.8611574e.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.d4ec243c.css",
-    "static/js/main.bf5fd3ba.js"
+    "static/js/main.e1974721.js"
   ]
 }
