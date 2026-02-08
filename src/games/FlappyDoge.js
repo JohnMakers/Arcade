@@ -14,10 +14,11 @@ const FlappyDoge = ({ onExit }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
 
-  // Constants for better visuals and gameplay
-  const CHARACTER_SIZE = 60; // Increased size to highlight your art
-  const PIPE_WIDTH = 70;      // Wider pipes to prevent "thin/squished" look
-  const PIPE_GAP = 160;       // Slightly wider gap for the larger character
+  // --- CONFIGURATION ---
+  const CHARACTER_SIZE = 60; 
+  const PIPE_WIDTH = 85;      // WIDER to prevent squishing the art
+  const PIPE_GAP = 170;       // More space for the larger sprites
+  const HITBOX_PADDING = 15;  // HITBOX FORGIVENESS (Pixels to ignore on pipe sides)
 
   const engine = useRef({
     running: false,
@@ -31,7 +32,6 @@ const FlappyDoge = ({ onExit }) => {
     lastTime: 0
   });
 
-  // Improved Image Loading logic for local assets
   useEffect(() => {
     const load = (k, src) => {
         const img = new Image();
@@ -40,9 +40,9 @@ const FlappyDoge = ({ onExit }) => {
             engine.current.sprites[k] = img;
         };
         img.onerror = () => console.error(`Failed to load ${k} from ${src}`);
-        // No crossOrigin needed for local public folder files
         img.src = src;
     };
+    // Ensure these match your AssetConfig keys exactly
     load('doge', ASSETS.DOGE_HERO);
     load('pipe', ASSETS.RED_CANDLE);
   }, []);
@@ -81,7 +81,6 @@ const FlappyDoge = ({ onExit }) => {
     const ctx = canvas.getContext('2d');
     let animationId;
 
-    // Reset Engine State
     engine.current.running = false; 
     engine.current.isDead = false;
     engine.current.score = 0;
@@ -99,7 +98,6 @@ const FlappyDoge = ({ onExit }) => {
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
-      // Dynamic Background
       const bgLevel = Math.min(1, state.score / 50);
       const r = Math.floor(240 * (1 - bgLevel)); 
       const g = Math.floor(240 * (1 - bgLevel)); 
@@ -116,7 +114,6 @@ const FlappyDoge = ({ onExit }) => {
         state.bird.vy += GRAVITY * dt;
         state.bird.y += state.bird.vy * dt;
 
-        // Pipe Spawning
         const spawnRate = Math.floor(180 / (state.speed / 3)); 
         if (state.frame % spawnRate === 0) {
             const minPipe = 60;
@@ -129,20 +126,27 @@ const FlappyDoge = ({ onExit }) => {
             p.x -= state.speed * dt;
 
             // --- IMPROVED COLLISION ---
-            // Bird hitbox is slightly smaller than the image (padding) to feel more fair
             const birdHitbox = { 
-                x: state.bird.x + 10, 
-                y: state.bird.y + 10, 
-                w: state.bird.w - 20, 
-                h: state.bird.h - 20 
+                x: state.bird.x + 12, 
+                y: state.bird.y + 12, 
+                w: state.bird.w - 24, 
+                h: state.bird.h - 24 
             };
+
+            // Hit Top Pipe?
+            // Pipe Hitbox X is [p.x + PADDING] to [p.x + WIDTH - PADDING]
+            const pipeLeft = p.x + HITBOX_PADDING;
+            const pipeRight = p.x + PIPE_WIDTH - HITBOX_PADDING;
 
             const hitTop = birdHitbox.y < p.topH;
             const hitBot = birdHitbox.y + birdHitbox.h > p.topH + p.gap;
-            const hitPipeX = birdHitbox.x + birdHitbox.w > p.x && birdHitbox.x < p.x + PIPE_WIDTH;
+            
+            // Check X Overlap
+            const hitPipeX = (birdHitbox.x + birdHitbox.w > pipeLeft) && (birdHitbox.x < pipeRight);
 
             if (hitPipeX && (hitTop || hitBot)) handleDeath();
             
+            // Score Update (using visual edge)
             if (!p.passed && p.x + PIPE_WIDTH < state.bird.x) {
                 p.passed = true;
                 state.score += 1;
@@ -155,21 +159,17 @@ const FlappyDoge = ({ onExit }) => {
         state.frame++;
       }
 
-      // --- IMPROVED DRAWING ---
       state.pipes.forEach(p => {
-          // Top Pipe (Flipped)
+          // Pass 'true' for isTop to flip the top pipe
           drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_WIDTH, p.topH, true);
-          // Bottom Pipe (Normal)
           drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_WIDTH, canvas.height - (p.topH + p.gap), false);
       });
 
-      // Draw Character
       drawSprite(ctx, state.sprites.doge, state.bird.x, state.bird.y, state.bird.w, state.bird.h, 'orange');
       
       animationId = requestAnimationFrame(loop);
     };
 
-    // Helper for character and basic sprites
     const drawSprite = (ctx, img, x, y, w, h, fallbackColor) => {
         if (img && img.complete && img.naturalWidth !== 0) {
             ctx.drawImage(img, x, y, w, h);
@@ -181,12 +181,11 @@ const FlappyDoge = ({ onExit }) => {
         }
     };
 
-    // Special helper for pipes to handle flipping/scaling without squishing
     const drawScaledPipe = (ctx, img, x, y, w, h, isTop) => {
         if (img && img.complete && img.naturalWidth !== 0) {
             ctx.save();
             if (isTop) {
-                // Flip top pipe so the "head" of your obstacle art faces the gap
+                // FLIP TOP PIPE so the cap faces down
                 ctx.translate(x + w / 2, y + h / 2);
                 ctx.rotate(Math.PI);
                 ctx.drawImage(img, -w / 2, -h / 2, w, h);
