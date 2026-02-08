@@ -18,11 +18,11 @@ export const ASSETS = {
   TEXTURE_WATER: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Blue_noise_2.png/640px-Blue_noise_2.png", 
 
   // --- STONKS JUMP ---
-  STONKS_MAN: "https://upload.wikimedia.org/wikipedia/en/b/b9/Surreal_memes_stonks.png",
-  PLATFORM_GREEN: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Green_rectangle.svg/480px-Green_rectangle.svg.png", 
-  PLATFORM_RED: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Infobox_info_icon.svg/480px-Infobox_info_icon.svg.png",
-  PLATFORM_BLUE: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Blue_rectangle.svg/480px-Blue_rectangle.svg.png",
-  ROCKET: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Rocket_emoji.svg/480px-Rocket_emoji.svg.png",
+  STONKS_MAN: "assets/stonks_man.png",
+  PLATFORM_GREEN: "assets/stonks_green.png", 
+  PLATFORM_RED: "assets/stonks_red.png",
+  PLATFORM_BLUE: "assets/stonks_blue.png",
+  ROCKET: "assets/stonks_rocket.png",
   
   // --- CHAD RUN (New Game 4) ---
   CHAD_HERO: "assets/chad_hero.png", // Using classic Wojak as placeholder for Chad
