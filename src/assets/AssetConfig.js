@@ -23,8 +23,11 @@ export const ASSETS = {
   PLATFORM_RED: "assets/stonks_red.png",
   PLATFORM_BLUE: "assets/stonks_blue.png",
   ROCKET: "assets/stonks_rocket.png",
-  
-  // --- CHAD RUN (New Game 4) ---
+  STONKS_BG_1: "assets/stonks_bg_1.png", // 0 - 10k
+  STONKS_BG_2: "assets/stonks_bg_2.png", // 10k - 100k 
+  STONKS_BG_3: "assets/stonks_bg_3.png", // 100k+ 
+
+  // --- CHAD RUN ---
   CHAD_HERO: "assets/chad_hero.png", // Using classic Wojak as placeholder for Chad
   OBSTACLE_SOYJAK: "assets/chad_obstacle.png", // Using Cringe Target as placeholder
   OBSTACLE_BIRD: "assets/chad_air.png", // Placeholder flyer

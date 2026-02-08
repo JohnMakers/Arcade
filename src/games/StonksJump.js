@@ -14,8 +14,21 @@ const StonksJump = ({ onExit }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
 
+  // --- SENIOR DEV TUNING (HD SCALING) ---
+  // We use a "virtual" resolution of 800x1200 for crisp graphics
+  const SCALE = 2; 
+  const GRAVITY = 0.45 * SCALE; // 0.9
+  const JUMP = -12 * SCALE;     // -24 (Slightly stronger for scale)
+  const SPEED = 7 * SCALE;      // 14
+  const BOUNCE_ROCKET = -35 * SCALE;
+
+  // Asset Dimensions (Scaled)
+  const HERO_SIZE = 40 * SCALE; // 80px
+  const PLAT_W = 80 * SCALE;    // 160px
+  const PLAT_H = 15 * SCALE;    // 30px
+
   const gameState = useRef({
-    hero: { x: 185, y: 300, vx: 0, vy: 0, w: 40, h: 40 },
+    hero: { x: 300, y: 600, vx: 0, vy: 0, w: HERO_SIZE, h: HERO_SIZE },
     cameraY: 0,
     platforms: [],
     keys: { left: false, right: false },
@@ -37,6 +50,11 @@ const StonksJump = ({ onExit }) => {
     loadSprite('red', ASSETS.PLATFORM_RED);
     loadSprite('blue', ASSETS.PLATFORM_BLUE);
     loadSprite('rocket', ASSETS.ROCKET);
+    
+    // Load Backgrounds
+    loadSprite('bg1', ASSETS.STONKS_BG_1 || ASSETS.FLAPPY_BACKGROUND); // Fallback if missing
+    loadSprite('bg2', ASSETS.STONKS_BG_2 || ASSETS.FLAPPY_BACKGROUND);
+    loadSprite('bg3', ASSETS.STONKS_BG_3 || ASSETS.CHAD_BG);
   }, []);
 
   useEffect(() => {
@@ -57,7 +75,8 @@ const StonksJump = ({ onExit }) => {
         if (touch) {
             const rect = wrapper.getBoundingClientRect();
             const relativeX = touch.clientX - rect.left;
-            const scaleX = 400 / rect.width; 
+            // Map screen tap to HD canvas coordinates
+            const scaleX = 800 / rect.width; 
             gameState.current.touchX = relativeX * scaleX;
         }
     };
@@ -93,17 +112,17 @@ const StonksJump = ({ onExit }) => {
     let animationId;
 
     gameState.current.active = true;
-    gameState.current.hero = { x: 185, y: 400, vx: 0, vy: 0, w: 30, h: 30 };
+    gameState.current.hero = { x: 370, y: 800, vx: 0, vy: 0, w: HERO_SIZE, h: HERO_SIZE };
     gameState.current.cameraY = 0;
+    
+    // Initial Base Platforms
     gameState.current.platforms = [
-        { x: 160, y: 550, w: 80, h: 15, type: 'green' },
-        { x: 160, y: 400, w: 80, h: 15, type: 'green' }
+        { x: 320, y: 1100, w: PLAT_W, h: PLAT_H, type: 'green' },
+        { x: 320, y: 800, w: PLAT_W, h: PLAT_H, type: 'green' },
+        { x: 100, y: 600, w: PLAT_W, h: PLAT_H, type: 'green' },
+        { x: 500, y: 400, w: PLAT_W, h: PLAT_H, type: 'green' }
     ];
     gameState.current.lastTime = performance.now();
-
-    const GRAVITY = 0.45;
-    const JUMP = -11;
-    const SPEED = 6;
 
     const drawSprite = (spriteKey, x, y, w, h, fallbackColor) => {
         const img = gameState.current.sprites[spriteKey];
@@ -112,24 +131,39 @@ const StonksJump = ({ onExit }) => {
         } else {
             ctx.fillStyle = fallbackColor;
             ctx.fillRect(x, y, w, h);
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x, y, w, h);
         }
     };
 
-    const loop = async (time) => { // Made ASYNC
+    const loop = async (time) => { 
       const state = gameState.current;
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
-      ctx.fillStyle = "#1a1a1a";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // --- 1. Dynamic Backgrounds ---
+      // Decide BG based on score (cameraY)
+      // Note: cameraY is negative as we go up. Absolute value is the height.
+      const height = Math.abs(state.cameraY);
+      
+      let bgKey = 'bg1';
+      if (height > 10000) bgKey = 'bg2';
+      if (height > 100000) bgKey = 'bg3';
+
+      const bgImg = state.sprites[bgKey];
+      if (bgImg && bgImg.complete) {
+          ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+      } else {
+          // Fallback gradients if image missing
+          if (height > 100000) ctx.fillStyle = "#000022"; // Space
+          else if (height > 10000) ctx.fillStyle = "#1a1a40"; // Night/Moon
+          else ctx.fillStyle = "#1a1a1a"; // Dark Gray
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
       if (isPlaying && state.active) {
+        // --- Physics ---
         if (state.touchX !== null) {
             const diff = state.touchX - (state.hero.x + state.hero.w/2);
-            if (Math.abs(diff) > 5) {
+            if (Math.abs(diff) > 10) { // Increased deadzone for touch
                 state.hero.vx = diff > 0 ? SPEED : -SPEED;
             } else {
                 state.hero.vx = 0;
@@ -144,85 +178,136 @@ const StonksJump = ({ onExit }) => {
         state.hero.x += state.hero.vx * dt;
         state.hero.y += state.hero.vy * dt;
 
+        // Wrap around screen
         if (state.hero.x > canvas.width) state.hero.x = -state.hero.w;
         if (state.hero.x < -state.hero.w) state.hero.x = canvas.width;
 
-        if (state.hero.vy > 0) {
+        // --- Collision ---
+        if (state.hero.vy > 0) { // Only check when falling
             state.platforms.forEach(p => {
+                // Tighter hitbox for feet
+                const footX = state.hero.x + (state.hero.w * 0.2);
+                const footW = state.hero.w * 0.6;
+                const footY = state.hero.y + state.hero.h;
+
                 if (!p.broken &&
-                    state.hero.x + 20 > p.x && 
-                    state.hero.x + 10 < p.x + p.w &&
-                    state.hero.y + state.hero.h > p.y && 
-                    state.hero.y + state.hero.h < p.y + p.h + 20
+                    footX + footW > p.x && 
+                    footX < p.x + p.w &&
+                    footY > p.y && 
+                    footY < p.y + p.h + (20 * SCALE) // Allow passing through slightly
                 ) {
-                    if (p.type === 'red') {
-                        p.broken = true;
-                        state.hero.vy = 0;
-                    } else if (p.hasRocket) {
-                        state.hero.vy = -35; 
+                    // HIT!
+                    if (p.hasRocket) {
+                        state.hero.vy = BOUNCE_ROCKET; 
                     } else {
                         state.hero.vy = JUMP;
+                    }
+
+                    // Platform Break Logic
+                    if (p.type === 'red') {
+                        p.broken = true; 
+                        // Add a small visual pop/sound trigger here if needed
                     }
                 }
             });
         }
 
-        if (state.hero.y < state.cameraY + 300) {
-            state.cameraY = state.hero.y - 300;
-            setScore(Math.floor(Math.abs(state.cameraY)));
+        // --- Camera Follow ---
+        if (state.hero.y < state.cameraY + (canvas.height * 0.4)) {
+            state.cameraY = state.hero.y - (canvas.height * 0.4);
+            setScore(Math.floor(Math.abs(state.cameraY / SCALE))); // Normalize score display
         }
 
-        // ... [Platform Spawning Logic Omitted for brevity, assumed unchanged] ...
+        // --- Spawning Logic (Difficulty Curve) ---
         state.platforms.sort((a,b) => a.y - b.y);
         const highest = state.platforms[0].y;
-        if (highest > state.cameraY - 700) {
-            const gap = Math.random() * 80 + 40; 
-            const typeR = Math.random();
+        
+        // Spawn ahead of camera
+        if (highest > state.cameraY - 200) { 
+            const gap = (Math.random() * 100 + 60) * SCALE; // Scaled Gap
+            const y = highest - gap;
+            const x = Math.random() * (canvas.width - PLAT_W);
+
+            // DIFFICULTY LOGIC
+            const currentScore = Math.abs(state.cameraY / SCALE);
+            
             let type = 'green';
-            if (typeR > 0.8) type = 'blue';
+            let hasRocket = Math.random() > 0.98; // Rare rocket
+            
+            if (currentScore < 10000) {
+                // STAGE 1: Easy
+                // 10% Blue (Moving), 90% Green
+                if (Math.random() > 0.9) type = 'blue';
+            
+            } else if (currentScore >= 10000 && currentScore < 100000) {
+                // STAGE 2: Medium
+                // Red (Breakable) introduced.
+                const r = Math.random();
+                if (r > 0.8) type = 'red';      // 20% Breakable
+                else if (r > 0.7) type = 'blue'; // 10% Moving
+                else type = 'green';             // 70% Normal
+            
+            } else {
+                // STAGE 3: Market Crash (Hard)
+                // "All bars except blue break" -> No Green. Only Red and Blue.
+                const r = Math.random();
+                if (r > 0.3) type = 'red';      // 70% Breakable!
+                else type = 'blue';             // 30% Safe (Moving)
+            }
+
             state.platforms.push({
-                x: Math.random() * (canvas.width - 80),
-                y: highest - gap,
-                w: 80, h: 15,
+                x, y, w: PLAT_W, h: PLAT_H,
                 type: type,
                 moving: type === 'blue',
-                vx: type === 'blue' ? 2 : 0,
-                hasRocket: Math.random() > 0.95
+                vx: type === 'blue' ? (3 * SCALE) : 0, // Faster moving platforms
+                broken: false,
+                hasRocket
             });
         }
-        state.platforms = state.platforms.filter(p => p.y < state.cameraY + canvas.height + 100);
+        
+        // Cleanup old platforms
+        state.platforms = state.platforms.filter(p => p.y < state.cameraY + canvas.height + 200);
 
-        // --- DEATH CHECK & ASYNC SAVE ---
+        // --- Death Check ---
         if (state.hero.y > state.cameraY + canvas.height) {
             state.active = false;
-            
             if (username) {
                  await supabase.from('leaderboards').insert([{
                      game_id:'doodle', 
                      username, 
-                     score: Math.floor(Math.abs(state.cameraY)), 
+                     score: Math.floor(Math.abs(state.cameraY / SCALE)), 
                      address: address
                  }]);
             }
             setGameOver(true);
-            return; // Exit loop
+            return;
         }
       }
 
+      // --- Rendering ---
       ctx.save();
       ctx.translate(0, -state.cameraY);
+      
       state.platforms.forEach(p => {
-          if (p.broken) return;
+          if (p.broken) return; // Don't draw broken platforms
+          
+          // Move Blue Platforms
           if (p.moving && isPlaying) {
              p.x += p.vx * dt;
              if (p.x < 0 || p.x > canvas.width - p.w) p.vx *= -1;
           }
+          
           let color = '#00ff00';
-          if (p.type === 'red') color = 'red';
-          if (p.type === 'blue') color = 'cyan';
+          if (p.type === 'red') color = '#ff4444';
+          if (p.type === 'blue') color = '#44ffff';
+          
           drawSprite(p.type, p.x, p.y, p.w, p.h, color);
-          if (p.hasRocket) drawSprite('rocket', p.x + 20, p.y - 30, 30, 30, 'gold');
+          
+          if (p.hasRocket) {
+              drawSprite('rocket', p.x + (PLAT_W/2 - 15*SCALE), p.y - (30*SCALE), 30*SCALE, 30*SCALE, 'gold');
+          }
       });
+      
       drawSprite('hero', state.hero.x, state.hero.y, state.hero.w, state.hero.h, 'white');
       ctx.restore();
 
@@ -238,9 +323,10 @@ const StonksJump = ({ onExit }) => {
   }, [resetKey, gameOver]);
 
   return (
-    <div ref={containerRef} className="game-wrapper">
+    <div ref={containerRef} className="game-wrapper" tabIndex="0" onClick={() => containerRef.current.focus()}>
         <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setResetKey(prev => prev + 1); }} onExit={onExit} gameId="doodle" />
-        <canvas ref={canvasRef} width={400} height={600} />
+        {/* HD Canvas: Internal resolution 800x1200, displayed at CSS size (approx 400x600) */}
+        <canvas ref={canvasRef} width={800} height={1200} style={{ width: '100%', maxWidth: '500px', height: 'auto' }} />
     </div>
   );
 };
