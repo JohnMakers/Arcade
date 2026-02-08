@@ -28,6 +28,7 @@ export const ASSETS = {
   CHAD_HERO: "assets/chad_hero.png", // Using classic Wojak as placeholder for Chad
   OBSTACLE_SOYJAK: "assets/chad_obstacle.png", // Using Cringe Target as placeholder
   OBSTACLE_BIRD: "assets/chad_air.png", // Placeholder flyer
+  CHAD_BG: "assets/chad_bg.png", // Placeholder background
 };
 export const SOUNDS = {
   // Placeholder sound logic would go here

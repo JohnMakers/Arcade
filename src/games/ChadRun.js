@@ -66,9 +66,7 @@ const ChadRun = ({ onExit }) => {
     load('chad', ASSETS.CHAD_HERO);
     load('soyjak', ASSETS.OBSTACLE_SOYJAK);
     load('bird', ASSETS.OBSTACLE_BIRD);
-    // Uses the same BG logic as Flappy. 
-    // If you want a specific city run bg, rename file to 'chad_bg.png' and update asset config
-    load('bg', '/assets/flappy_bg.png'); 
+    load('bg', ASSETS.CHAD_BG); 
   }, []);
 
   // --- INPUT HANDLER ---
