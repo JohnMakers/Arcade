@@ -25,9 +25,9 @@ export const ASSETS = {
   ROCKET: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Rocket_emoji.svg/480px-Rocket_emoji.svg.png",
   
   // --- CHAD RUN (New Game 4) ---
-  CHAD_HERO: "https://upload.wikimedia.org/wikipedia/en/9/9a/Wojak_cropped.jpg", // Using classic Wojak as placeholder for Chad
-  OBSTACLE_SOYJAK: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/SNice.svg/1200px-SNice.svg.png", // Using Cringe Target as placeholder
-  OBSTACLE_BIRD: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Infobox_info_icon.svg/480px-Infobox_info_icon.svg.png", // Placeholder flyer
+  CHAD_HERO: "assets/chad_hero.png", // Using classic Wojak as placeholder for Chad
+  OBSTACLE_SOYJAK: "assets/chad_obstacle.png", // Using Cringe Target as placeholder
+  OBSTACLE_BIRD: "assets/chad_bird.png", // Placeholder flyer
 };
 export const SOUNDS = {
   // Placeholder sound logic would go here
