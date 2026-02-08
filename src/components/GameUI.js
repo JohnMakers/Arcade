@@ -4,6 +4,24 @@ import { supabase } from '../lib/supabaseClient';
 const GameUI = ({ score, gameOver, isPlaying, onRestart, onExit, gameId }) => {
   const [dailyLeaders, setDailyLeaders] = useState([]);
   const [allTimeLeaders, setAllTimeLeaders] = useState([]);
+  const [countdown, setCountdown] = useState(3);
+
+  // Reset countdown when game restarts
+  useEffect(() => {
+    if (!gameOver && !isPlaying) {
+      setCountdown(3);
+    }
+  }, [gameOver, isPlaying]);
+
+  // Countdown Timer Logic
+  useEffect(() => {
+    if (!gameOver && !isPlaying && countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown, gameOver, isPlaying]);
 
   useEffect(() => {
     if (gameOver && gameId) {
@@ -40,14 +58,24 @@ const GameUI = ({ score, gameOver, isPlaying, onRestart, onExit, gameId }) => {
     return (
       <div className="overlay-layer">
         <div className="hud-score">{score}</div>
-        {!isPlaying && (
+        
+        {/* COUNTDOWN OVERLAY */}
+        {!isPlaying && countdown > 0 && (
            <div style={{
-               fontSize: '2rem', 
-               color: 'cyan', 
-               textShadow: '4px 4px 0px #000',
-               animation: 'pulse 1.5s infinite alternate'
+               display: 'flex',
+               flexDirection: 'column',
+               alignItems: 'center',
+               justifyContent: 'center'
            }}>
-               PRESS TO START
+               <h2 className="meme-text" style={{fontSize: '1.5rem', marginBottom: '20px'}}>GAME STARTING IN</h2>
+               <div style={{
+                   fontSize: '5rem', 
+                   color: 'cyan', 
+                   textShadow: '6px 6px 0px #000',
+                   animation: 'pulse 0.5s infinite alternate'
+               }}>
+                   {countdown}
+               </div>
            </div>
         )}
       </div>

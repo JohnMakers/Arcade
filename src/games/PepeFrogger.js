@@ -20,6 +20,7 @@ const PepeFrogger = ({ onExit }) => {
 
   const engine = useRef({
     running: false,
+    isDead: false, // NEW GUARD FLAG
     frames: 0,
     cameraY: 0,
     autoScrollY: 0,
@@ -56,6 +57,9 @@ const PepeFrogger = ({ onExit }) => {
     if(containerRef.current) containerRef.current.focus();
 
     const handleInput = (e) => {
+        // IGNORE INPUT IF DEAD
+        if (engine.current.isDead) return;
+
         if (e.target && (e.target.closest('button') || e.target.closest('.interactive'))) return;
 
         if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," ","w","a","s","d"].includes(e.key)) {
@@ -66,10 +70,10 @@ const PepeFrogger = ({ onExit }) => {
         const now = performance.now();
 
         if (!state.running && !gameOver) {
-            state.running = true;
-            setIsPlaying(true);
-            state.lastTime = now;
-            state.lastInputTime = now;
+            // Wait for 3s timer via useEffect below, don't start manually on keypress anymore
+            // OR if you want keypress to skip timer, keep this, but user asked for 3s start.
+            // We will let the timer handle the start to match GameUI countdown.
+            return; 
         }
 
         if (!state.running || state.hero.isMoving) return;
@@ -198,6 +202,7 @@ const PepeFrogger = ({ onExit }) => {
 
     const resetGame = () => {
         engine.current.running = false;
+        engine.current.isDead = false; // RESET FLAG
         engine.current.hero = { gridX: 4, gridY: 13, x: 160, y: 520, targetX: 160, targetY: 520, isMoving: false };
         const startCam = (13 * GRID_SIZE) - 400;
         engine.current.cameraY = startCam;
@@ -222,7 +227,8 @@ const PepeFrogger = ({ onExit }) => {
         const w = canvas.width;
         const h = canvas.height;
 
-        if (state.running && !gameOver) {
+        // STOP LOGIC IF DEAD
+        if (state.running && !state.isDead && !gameOver) {
             state.frames++;
             if (state.invulnerable > 0) { state.invulnerable -= 1 * dt; }
 
@@ -327,8 +333,10 @@ const PepeFrogger = ({ onExit }) => {
         animationId = requestAnimationFrame(loop);
     };
 
-    // --- FIX: ASYNC SAVE ---
     const hitObstacle = async () => {
+        // --- GUARD: PREVENT DOUBLE DEATH / INPUT AFTER DEATH ---
+        if (engine.current.isDead) return;
+
         if (engine.current.invulnerable > 0) return;
         if (engine.current.shield) {
             engine.current.shield = false; 
@@ -338,10 +346,11 @@ const PepeFrogger = ({ onExit }) => {
             return;
         }
 
-        // STOP GAME LOOP
+        // 1. FREEZE GAME LOGIC IMMEDIATELY
         engine.current.running = false; 
+        engine.current.isDead = true; 
         
-        // SAVE SCORE (AWAIT)
+        // 2. SAVE SCORE
         if(username) {
             await supabase.from('leaderboards').insert([{
                 game_id: 'frogger', 
@@ -351,7 +360,7 @@ const PepeFrogger = ({ onExit }) => {
             }]);
         }
         
-        // TRIGGER GAME OVER UI (Only after save)
+        // 3. SHOW UI
         setGameOver(true);
     };
 
