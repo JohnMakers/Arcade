@@ -27,7 +27,7 @@ export const ASSETS = {
   // --- CHAD RUN (New Game 4) ---
   CHAD_HERO: "assets/chad_hero.png", // Using classic Wojak as placeholder for Chad
   OBSTACLE_SOYJAK: "assets/chad_obstacle.png", // Using Cringe Target as placeholder
-  OBSTACLE_BIRD: "assets/chad_bird.png", // Placeholder flyer
+  OBSTACLE_BIRD: "assets/chad_air.png", // Placeholder flyer
 };
 export const SOUNDS = {
   // Placeholder sound logic would go here
