@@ -16,9 +16,9 @@ const FlappyDoge = ({ onExit }) => {
 
   // --- CONFIGURATION ---
   const CHARACTER_SIZE = 60; 
-  const PIPE_WIDTH = 85;      // WIDER to prevent squishing the art
-  const PIPE_GAP = 170;       // More space for the larger sprites
-  const HITBOX_PADDING = 15;  // HITBOX FORGIVENESS (Pixels to ignore on pipe sides)
+  const PIPE_WIDTH = 100;     // INCREASED: Thicker pipes to show off the art
+  const PIPE_GAP = 180;       // INCREASED: More room to navigate between thick pipes
+  const HITBOX_PADDING = 20;  // INCREASED: More forgiveness on the edges
 
   const engine = useRef({
     running: false,
@@ -42,7 +42,6 @@ const FlappyDoge = ({ onExit }) => {
         img.onerror = () => console.error(`Failed to load ${k} from ${src}`);
         img.src = src;
     };
-    // Ensure these match your AssetConfig keys exactly
     load('doge', ASSETS.DOGE_HERO);
     load('pipe', ASSETS.RED_CANDLE);
   }, []);
@@ -126,6 +125,7 @@ const FlappyDoge = ({ onExit }) => {
             p.x -= state.speed * dt;
 
             // --- IMPROVED COLLISION ---
+            // The hitbox is strictly smaller than the visual pipe to account for art transparency/padding
             const birdHitbox = { 
                 x: state.bird.x + 12, 
                 y: state.bird.y + 12, 
@@ -133,20 +133,19 @@ const FlappyDoge = ({ onExit }) => {
                 h: state.bird.h - 24 
             };
 
-            // Hit Top Pipe?
-            // Pipe Hitbox X is [p.x + PADDING] to [p.x + WIDTH - PADDING]
+            // Calculate Pipe Hitbox (Visual Position + Padding)
             const pipeLeft = p.x + HITBOX_PADDING;
             const pipeRight = p.x + PIPE_WIDTH - HITBOX_PADDING;
 
             const hitTop = birdHitbox.y < p.topH;
             const hitBot = birdHitbox.y + birdHitbox.h > p.topH + p.gap;
             
-            // Check X Overlap
+            // Collision Logic
             const hitPipeX = (birdHitbox.x + birdHitbox.w > pipeLeft) && (birdHitbox.x < pipeRight);
 
             if (hitPipeX && (hitTop || hitBot)) handleDeath();
             
-            // Score Update (using visual edge)
+            // Score Update (Trigger when fully passed the visual width)
             if (!p.passed && p.x + PIPE_WIDTH < state.bird.x) {
                 p.passed = true;
                 state.score += 1;
@@ -160,7 +159,6 @@ const FlappyDoge = ({ onExit }) => {
       }
 
       state.pipes.forEach(p => {
-          // Pass 'true' for isTop to flip the top pipe
           drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_WIDTH, p.topH, true);
           drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_WIDTH, canvas.height - (p.topH + p.gap), false);
       });
@@ -185,7 +183,7 @@ const FlappyDoge = ({ onExit }) => {
         if (img && img.complete && img.naturalWidth !== 0) {
             ctx.save();
             if (isTop) {
-                // FLIP TOP PIPE so the cap faces down
+                // Flip top pipe
                 ctx.translate(x + w / 2, y + h / 2);
                 ctx.rotate(Math.PI);
                 ctx.drawImage(img, -w / 2, -h / 2, w, h);
