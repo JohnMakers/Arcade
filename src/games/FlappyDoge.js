@@ -14,22 +14,14 @@ const FlappyDoge = ({ onExit }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
 
-  // --- CONFIGURATION ---
-  const DEBUG_MODE = true;    // Set to FALSE when happy with hitboxes
-  const CHARACTER_SIZE = 60; 
+  // --- SINGLE SOURCE OF TRUTH CONFIGURATION ---
+  const DEBUG_MODE = true;    // Set to false when satisfied
+  const PIPE_WIDTH = 180;     // The exact width for BOTH Image and Hitbox
+  const PIPE_GAP = 240;       // Gap size
+  const CHARACTER_SIZE = 60;  
   
-  // VISUAL SETTINGS
-  const PIPE_IMAGE_WIDTH = 180; // The actual width we draw the image
-  const PIPE_GAP = 220;
-  
-  // HITBOX SETTINGS
-  // Negative padding means the hitbox is SMALLER than the image (forgiveness)
-  // Positive padding means the hitbox is LARGER (harder)
-  // We use a small positive padding here to pull the hitbox INWARDS from the edge of the sprite
-  // effectively ignoring the outer 10px of the pipe image.
-  const PIPE_HITBOX_INSET = 10; 
-
-  const CHAR_HITBOX_SHRINK = 22; 
+  // This shrinks the bird's hitbox slightly to avoid dying on transparent corners
+  const BIRD_HITBOX_PADDING = 20; 
 
   const engine = useRef({
     running: false,
@@ -104,6 +96,7 @@ const FlappyDoge = ({ onExit }) => {
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
+      // Draw Background
       const bgLevel = Math.min(1, state.score / 50);
       const r = Math.floor(240 * (1 - bgLevel)); 
       const g = Math.floor(240 * (1 - bgLevel)); 
@@ -132,30 +125,28 @@ const FlappyDoge = ({ onExit }) => {
             p.x -= state.speed * dt;
 
             // --- COLLISION LOGIC ---
-            
             // 1. Bird Hitbox (Small Core)
             const birdHitbox = { 
-                x: state.bird.x + CHAR_HITBOX_SHRINK, 
-                y: state.bird.y + CHAR_HITBOX_SHRINK, 
-                w: state.bird.w - (CHAR_HITBOX_SHRINK * 2), 
-                h: state.bird.h - (CHAR_HITBOX_SHRINK * 2) 
+                x: state.bird.x + BIRD_HITBOX_PADDING, 
+                y: state.bird.y + BIRD_HITBOX_PADDING, 
+                w: state.bird.w - (BIRD_HITBOX_PADDING * 2), 
+                h: state.bird.h - (BIRD_HITBOX_PADDING * 2) 
             };
 
-            // 2. Pipe Hitbox (Visually smaller than image)
-            // p.x is the start of the image.
-            // Hitbox starts at p.x + INSET
-            const pipeLeft = p.x + PIPE_HITBOX_INSET;
-            const pipeRight = p.x + PIPE_IMAGE_WIDTH - PIPE_HITBOX_INSET;
+            // 2. Pipe Hitbox (Exact match to PIPE_WIDTH)
+            const pipeLeft = p.x;
+            const pipeRight = p.x + PIPE_WIDTH;
 
             const hitTop = birdHitbox.y < p.topH;
             const hitBot = birdHitbox.y + birdHitbox.h > p.topH + p.gap;
             
+            // X-Axis Overlap Check
             const hitPipeX = (birdHitbox.x + birdHitbox.w > pipeLeft) && (birdHitbox.x < pipeRight);
 
             if (hitPipeX && (hitTop || hitBot)) handleDeath();
             
-            // Score Update: Use visual edge (PIPE_IMAGE_WIDTH)
-            if (!p.passed && p.x + PIPE_IMAGE_WIDTH < state.bird.x) {
+            // Score Update
+            if (!p.passed && p.x + PIPE_WIDTH < state.bird.x) {
                 p.passed = true;
                 state.score += 1;
                 setScore(state.score); 
@@ -163,58 +154,60 @@ const FlappyDoge = ({ onExit }) => {
         });
 
         if (state.bird.y > canvas.height - state.bird.h || state.bird.y < -50) handleDeath();
-        state.pipes = state.pipes.filter(p => p.x + PIPE_IMAGE_WIDTH > 0);
+        state.pipes = state.pipes.filter(p => p.x + PIPE_WIDTH > 0);
         state.frame++;
       }
 
       state.pipes.forEach(p => {
-          // Draw Image Full Width
-          drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_IMAGE_WIDTH, p.topH);
-          drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_IMAGE_WIDTH, canvas.height - (p.topH + p.gap));
+          // --- DRAWING PIPES ---
+          // Both pipes use exactly PIPE_WIDTH. No rotation.
           
-          // DEBUG: Draw Hitboxes (Aligned with Insets)
+          // Top Pipe
+          drawPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_WIDTH, p.topH);
+          
+          // Bottom Pipe
+          drawPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_WIDTH, canvas.height - (p.topH + p.gap));
+          
+          // --- DEBUG RED BOX ---
           if (DEBUG_MODE) {
               ctx.strokeStyle = "red";
               ctx.lineWidth = 2;
-              const hbLeft = p.x + PIPE_HITBOX_INSET;
-              const hbWidth = PIPE_IMAGE_WIDTH - (PIPE_HITBOX_INSET * 2);
-              
-              // Top Box
-              ctx.strokeRect(hbLeft, 0, hbWidth, p.topH);
-              // Bottom Box
-              ctx.strokeRect(hbLeft, p.topH + p.gap, hbWidth, canvas.height);
+              // These Rects use EXACTLY the same math as the collision logic above
+              ctx.strokeRect(p.x, 0, PIPE_WIDTH, p.topH); 
+              ctx.strokeRect(p.x, p.topH + p.gap, PIPE_WIDTH, canvas.height);
           }
       });
 
-      drawSprite(ctx, state.sprites.doge, state.bird.x, state.bird.y, state.bird.w, state.bird.h, 'orange');
+      // Draw Bird
+      drawSprite(ctx, state.sprites.doge, state.bird.x, state.bird.y, state.bird.w, state.bird.h);
       
+      // --- DEBUG BIRD BOX ---
       if (DEBUG_MODE) {
           ctx.strokeStyle = "lime";
           ctx.lineWidth = 2;
-          const hb = { 
-              x: state.bird.x + CHAR_HITBOX_SHRINK, 
-              y: state.bird.y + CHAR_HITBOX_SHRINK, 
-              w: state.bird.w - (CHAR_HITBOX_SHRINK * 2), 
-              h: state.bird.h - (CHAR_HITBOX_SHRINK * 2) 
-          };
-          ctx.strokeRect(hb.x, hb.y, hb.w, hb.h);
+          ctx.strokeRect(
+              state.bird.x + BIRD_HITBOX_PADDING, 
+              state.bird.y + BIRD_HITBOX_PADDING, 
+              state.bird.w - (BIRD_HITBOX_PADDING * 2), 
+              state.bird.h - (BIRD_HITBOX_PADDING * 2)
+          );
       }
 
       animationId = requestAnimationFrame(loop);
     };
 
-    const drawSprite = (ctx, img, x, y, w, h, fallbackColor) => {
+    const drawSprite = (ctx, img, x, y, w, h) => {
         if (img && img.complete && img.naturalWidth !== 0) {
             ctx.drawImage(img, x, y, w, h);
         } else {
-            ctx.fillStyle = fallbackColor;
+            ctx.fillStyle = 'orange';
             ctx.fillRect(x, y, w, h);
         }
     };
 
-    const drawScaledPipe = (ctx, img, x, y, w, h) => {
+    const drawPipe = (ctx, img, x, y, w, h) => {
         if (img && img.complete && img.naturalWidth !== 0) {
-            // Draw image filling the entire width w
+            // Draw image filling the entire hitbox width
             ctx.drawImage(img, x, y, w, h);
         } else {
             ctx.fillStyle = '#44ff44';
