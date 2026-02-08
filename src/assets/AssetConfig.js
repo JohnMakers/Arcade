@@ -3,6 +3,7 @@ export const ASSETS = {
   // --- FLAPPY DOGE ---
   DOGE_HERO: "assets/flappy_character.png",
   RED_CANDLE: "assets/flappy_obstacle.png", 
+  FLAPPY_BACKGROUND: "assets/flappy_bg.png",
   
   // --- PEPE FROGGER ---
   PEPE_HERO: "https://upload.wikimedia.org/wikipedia/en/8/87/Pepe_the_Frog.jpg",

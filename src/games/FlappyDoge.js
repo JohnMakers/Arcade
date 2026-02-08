@@ -50,9 +50,7 @@ const FlappyDoge = ({ onExit }) => {
     };
     load('doge', ASSETS.DOGE_HERO);
     load('pipe', ASSETS.RED_CANDLE);
-    // NEW: Load Background
-    // If you don't have this asset yet, the code will just skip it and use blue color
-    load('bg', '/assets/flappy_bg.png'); 
+    load('bg', ASSETS.FLAPPY_BACKGROUND); 
   }, []);
 
   useEffect(() => {
