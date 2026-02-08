@@ -14,18 +14,21 @@ const StonksJump = ({ onExit }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
 
-  // --- SENIOR DEV TUNING (HD SCALING) ---
-  // We use a "virtual" resolution of 800x1200 for crisp graphics
+  // --- SENIOR DEV TUNING (BIGGER & BOLDER) ---
   const SCALE = 2; 
-  const GRAVITY = 0.45 * SCALE; // 0.9
-  const JUMP = -12 * SCALE;     // -24 (Slightly stronger for scale)
-  const SPEED = 7 * SCALE;      // 14
-  const BOUNCE_ROCKET = -35 * SCALE;
+  
+  // 1. DIMENSIONS: Increased by ~25% to fix "Small Feel"
+  // Previous: 40 * 2 = 80px. New: 55 * 2 = 110px.
+  const HERO_SIZE = 55 * SCALE; 
+  // Previous: 80 * 2 = 160px. New: 100 * 2 = 200px (1/4th of screen width)
+  const PLAT_W = 100 * SCALE;    
+  const PLAT_H = 20 * SCALE;    
 
-  // Asset Dimensions (Scaled)
-  const HERO_SIZE = 40 * SCALE; // 80px
-  const PLAT_W = 80 * SCALE;    // 160px
-  const PLAT_H = 15 * SCALE;    // 30px
+  // 2. PHYSICS: Retuned for heavier/larger characters
+  const GRAVITY = 0.55 * SCALE; // slightly heavier
+  const JUMP = -14.5 * SCALE;   // stronger jump to compensate gravity
+  const SPEED = 8 * SCALE;      // slightly faster lateral movement
+  const BOUNCE_ROCKET = -40 * SCALE;
 
   const gameState = useRef({
     hero: { x: 300, y: 600, vx: 0, vy: 0, w: HERO_SIZE, h: HERO_SIZE },
@@ -52,7 +55,7 @@ const StonksJump = ({ onExit }) => {
     loadSprite('rocket', ASSETS.ROCKET);
     
     // Load Backgrounds
-    loadSprite('bg1', ASSETS.STONKS_BG_1 || ASSETS.FLAPPY_BACKGROUND); // Fallback if missing
+    loadSprite('bg1', ASSETS.STONKS_BG_1 || ASSETS.FLAPPY_BACKGROUND); 
     loadSprite('bg2', ASSETS.STONKS_BG_2 || ASSETS.FLAPPY_BACKGROUND);
     loadSprite('bg3', ASSETS.STONKS_BG_3 || ASSETS.CHAD_BG);
   }, []);
@@ -75,7 +78,6 @@ const StonksJump = ({ onExit }) => {
         if (touch) {
             const rect = wrapper.getBoundingClientRect();
             const relativeX = touch.clientX - rect.left;
-            // Map screen tap to HD canvas coordinates
             const scaleX = 800 / rect.width; 
             gameState.current.touchX = relativeX * scaleX;
         }
@@ -109,18 +111,23 @@ const StonksJump = ({ onExit }) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    
+    // --- SHARPNESS FIX ---
+    // If your assets are pixel art, uncomment this:
+    // ctx.imageSmoothingEnabled = false; 
+
     let animationId;
 
     gameState.current.active = true;
-    gameState.current.hero = { x: 370, y: 800, vx: 0, vy: 0, w: HERO_SIZE, h: HERO_SIZE };
+    gameState.current.hero = { x: 350, y: 800, vx: 0, vy: 0, w: HERO_SIZE, h: HERO_SIZE };
     gameState.current.cameraY = 0;
     
-    // Initial Base Platforms
+    // Initial Platforms (Wider spread)
     gameState.current.platforms = [
-        { x: 320, y: 1100, w: PLAT_W, h: PLAT_H, type: 'green' },
-        { x: 320, y: 800, w: PLAT_W, h: PLAT_H, type: 'green' },
-        { x: 100, y: 600, w: PLAT_W, h: PLAT_H, type: 'green' },
-        { x: 500, y: 400, w: PLAT_W, h: PLAT_H, type: 'green' }
+        { x: 300, y: 1100, w: PLAT_W, h: PLAT_H, type: 'green' },
+        { x: 300, y: 800, w: PLAT_W, h: PLAT_H, type: 'green' },
+        { x: 100, y: 550, w: PLAT_W, h: PLAT_H, type: 'green' },
+        { x: 500, y: 300, w: PLAT_W, h: PLAT_H, type: 'green' }
     ];
     gameState.current.lastTime = performance.now();
 
@@ -139,9 +146,6 @@ const StonksJump = ({ onExit }) => {
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
-      // --- 1. Dynamic Backgrounds ---
-      // Decide BG based on score (cameraY)
-      // Note: cameraY is negative as we go up. Absolute value is the height.
       const height = Math.abs(state.cameraY);
       
       let bgKey = 'bg1';
@@ -152,18 +156,16 @@ const StonksJump = ({ onExit }) => {
       if (bgImg && bgImg.complete) {
           ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
       } else {
-          // Fallback gradients if image missing
-          if (height > 100000) ctx.fillStyle = "#000022"; // Space
-          else if (height > 10000) ctx.fillStyle = "#1a1a40"; // Night/Moon
-          else ctx.fillStyle = "#1a1a1a"; // Dark Gray
+          if (height > 100000) ctx.fillStyle = "#000022"; 
+          else if (height > 10000) ctx.fillStyle = "#1a1a40"; 
+          else ctx.fillStyle = "#1a1a1a"; 
           ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
 
       if (isPlaying && state.active) {
-        // --- Physics ---
         if (state.touchX !== null) {
             const diff = state.touchX - (state.hero.x + state.hero.w/2);
-            if (Math.abs(diff) > 10) { // Increased deadzone for touch
+            if (Math.abs(diff) > 10) { 
                 state.hero.vx = diff > 0 ? SPEED : -SPEED;
             } else {
                 state.hero.vx = 0;
@@ -178,97 +180,79 @@ const StonksJump = ({ onExit }) => {
         state.hero.x += state.hero.vx * dt;
         state.hero.y += state.hero.vy * dt;
 
-        // Wrap around screen
         if (state.hero.x > canvas.width) state.hero.x = -state.hero.w;
         if (state.hero.x < -state.hero.w) state.hero.x = canvas.width;
 
-        // --- Collision ---
-        if (state.hero.vy > 0) { // Only check when falling
+        if (state.hero.vy > 0) { 
             state.platforms.forEach(p => {
-                // Tighter hitbox for feet
-                const footX = state.hero.x + (state.hero.w * 0.2);
-                const footW = state.hero.w * 0.6;
+                const footX = state.hero.x + (state.hero.w * 0.25);
+                const footW = state.hero.w * 0.5; // Tighter foot hitbox
                 const footY = state.hero.y + state.hero.h;
 
                 if (!p.broken &&
                     footX + footW > p.x && 
                     footX < p.x + p.w &&
                     footY > p.y && 
-                    footY < p.y + p.h + (20 * SCALE) // Allow passing through slightly
+                    footY < p.y + p.h + (25 * SCALE) 
                 ) {
-                    // HIT!
                     if (p.hasRocket) {
                         state.hero.vy = BOUNCE_ROCKET; 
                     } else {
                         state.hero.vy = JUMP;
                     }
 
-                    // Platform Break Logic
                     if (p.type === 'red') {
                         p.broken = true; 
-                        // Add a small visual pop/sound trigger here if needed
                     }
                 }
             });
         }
 
-        // --- Camera Follow ---
         if (state.hero.y < state.cameraY + (canvas.height * 0.4)) {
             state.cameraY = state.hero.y - (canvas.height * 0.4);
-            setScore(Math.floor(Math.abs(state.cameraY / SCALE))); // Normalize score display
+            setScore(Math.floor(Math.abs(state.cameraY / SCALE))); 
         }
 
-        // --- Spawning Logic (Difficulty Curve) ---
         state.platforms.sort((a,b) => a.y - b.y);
         const highest = state.platforms[0].y;
         
-        // Spawn ahead of camera
         if (highest > state.cameraY - 200) { 
-            const gap = (Math.random() * 100 + 60) * SCALE; // Scaled Gap
+            // Wider gaps for bigger jumps
+            const gap = (Math.random() * 120 + 80) * SCALE; 
             const y = highest - gap;
+            // Ensure platform stays within bounds considering new Width
             const x = Math.random() * (canvas.width - PLAT_W);
 
-            // DIFFICULTY LOGIC
             const currentScore = Math.abs(state.cameraY / SCALE);
             
             let type = 'green';
-            let hasRocket = Math.random() > 0.98; // Rare rocket
+            let hasRocket = Math.random() > 0.98; 
             
             if (currentScore < 10000) {
-                // STAGE 1: Easy
-                // 10% Blue (Moving), 90% Green
                 if (Math.random() > 0.9) type = 'blue';
-            
             } else if (currentScore >= 10000 && currentScore < 100000) {
-                // STAGE 2: Medium
-                // Red (Breakable) introduced.
                 const r = Math.random();
-                if (r > 0.8) type = 'red';      // 20% Breakable
-                else if (r > 0.7) type = 'blue'; // 10% Moving
-                else type = 'green';             // 70% Normal
-            
+                if (r > 0.8) type = 'red';      
+                else if (r > 0.7) type = 'blue'; 
+                else type = 'green';             
             } else {
-                // STAGE 3: Market Crash (Hard)
-                // "All bars except blue break" -> No Green. Only Red and Blue.
                 const r = Math.random();
-                if (r > 0.3) type = 'red';      // 70% Breakable!
-                else type = 'blue';             // 30% Safe (Moving)
+                if (r > 0.3) type = 'red';      
+                else type = 'blue';             
             }
 
             state.platforms.push({
                 x, y, w: PLAT_W, h: PLAT_H,
                 type: type,
                 moving: type === 'blue',
-                vx: type === 'blue' ? (3 * SCALE) : 0, // Faster moving platforms
+                vx: type === 'blue' ? (3.5 * SCALE) : 0, 
                 broken: false,
                 hasRocket
             });
         }
         
-        // Cleanup old platforms
         state.platforms = state.platforms.filter(p => p.y < state.cameraY + canvas.height + 200);
 
-        // --- Death Check ---
         if (state.hero.y > state.cameraY + canvas.height) {
             state.active = false;
             if (username) {
@@ -284,14 +268,12 @@ const StonksJump = ({ onExit }) => {
         }
       }
 
-      // --- Rendering ---
       ctx.save();
       ctx.translate(0, -state.cameraY);
       
       state.platforms.forEach(p => {
-          if (p.broken) return; // Don't draw broken platforms
+          if (p.broken) return; 
           
-          // Move Blue Platforms
           if (p.moving && isPlaying) {
              p.x += p.vx * dt;
              if (p.x < 0 || p.x > canvas.width - p.w) p.vx *= -1;
@@ -325,7 +307,6 @@ const StonksJump = ({ onExit }) => {
   return (
     <div ref={containerRef} className="game-wrapper" tabIndex="0" onClick={() => containerRef.current.focus()}>
         <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setResetKey(prev => prev + 1); }} onExit={onExit} gameId="doodle" />
-        {/* HD Canvas: Internal resolution 800x1200, displayed at CSS size (approx 400x600) */}
         <canvas ref={canvasRef} width={800} height={1200} style={{ width: '100%', maxWidth: '500px', height: 'auto' }} />
     </div>
   );
