@@ -28,7 +28,7 @@ const FlappyDoge = ({ onExit }) => {
   // 3. Gameplay (The Red Box)
   // This is the "Kill Zone". It MUST be smaller than the *visible* part of the pipe image.
   // If players die without touching the pipe, LOWER this number.
-  const PIPE_HITBOX_WIDTH = 30; 
+  const PIPE_HITBOX_WIDTH = 140; 
   
   // 4. Centering
   // This math ensures the Hitbox (Red) sits perfectly inside the Image (Blue).
@@ -36,7 +36,7 @@ const FlappyDoge = ({ onExit }) => {
 
   // 5. Character
   const CHARACTER_SIZE = 45; // Size of the Doge
-  const BIRD_HITBOX_PADDING = 12; // How much "grace" space around the Doge (higher = smaller hitbox)
+  const BIRD_HITBOX_PADDING = 4; // How much "grace" space around the Doge (higher = smaller hitbox)
 
   // 6. Difficulty
   const PIPE_GAP = 170; // Vertical space between pipes
