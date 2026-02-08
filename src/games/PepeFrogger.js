@@ -24,8 +24,8 @@ const PepeFrogger = ({ onExit }) => {
     cameraY: 0,
     autoScrollY: 0,
     score: 0,
-    lastInputTime: 0,   // For Camera Chase Mechanic
-    consecutiveUpMoves: 0, 
+    lastInputTime: 0,
+    consecutiveUpMoves: 0,
     shield: false,
     invulnerable: 0,
     hero: { gridX: 4, gridY: 13, x: 160, y: 520, targetX: 160, targetY: 520, isMoving: false },
@@ -77,13 +77,10 @@ const PepeFrogger = ({ onExit }) => {
         let dx = 0; let dy = 0;
         const key = e.key ? e.key.toLowerCase() : '';
 
-        // --- INPUT LOGIC & CHASE RESET ---
         if (key === 'arrowup' || key === 'w') {
             dy = -1;
             state.consecutiveUpMoves++;
-            if (state.consecutiveUpMoves >= 2) {
-                state.lastInputTime = now;
-            }
+            if (state.consecutiveUpMoves >= 2) state.lastInputTime = now;
         } else {
             state.consecutiveUpMoves = 0;
             if (key === 'arrowdown' || key === 's') dy = 1;
@@ -229,11 +226,11 @@ const PepeFrogger = ({ onExit }) => {
             state.frames++;
             if (state.invulnerable > 0) { state.invulnerable -= 1 * dt; }
 
-            // --- CAMERA LOGIC ---
             let scrollSpeed = 0.5 + (state.score * 0.001);
             if (time - state.lastInputTime > 4000 && state.score > 500) {
                 scrollSpeed += 2.5; 
             }
+
             if (state.score > 100) { state.autoScrollY -= scrollSpeed * dt; }
             
             const heroCam = (state.hero.gridY * GRID_SIZE) - 400;
@@ -330,7 +327,8 @@ const PepeFrogger = ({ onExit }) => {
         animationId = requestAnimationFrame(loop);
     };
 
-    const hitObstacle = () => {
+    // --- FIX: ASYNC SAVE ---
+    const hitObstacle = async () => {
         if (engine.current.invulnerable > 0) return;
         if (engine.current.shield) {
             engine.current.shield = false; 
@@ -339,8 +337,22 @@ const PepeFrogger = ({ onExit }) => {
             createParticles(engine.current.hero.x, engine.current.hero.y, 'white', 20);
             return;
         }
-        engine.current.running = false; setGameOver(true);
-        if(username) supabase.from('leaderboards').insert([{game_id:'frogger', username, score: engine.current.score, address: address}]);
+
+        // STOP GAME LOOP
+        engine.current.running = false; 
+        
+        // SAVE SCORE (AWAIT)
+        if(username) {
+            await supabase.from('leaderboards').insert([{
+                game_id: 'frogger', 
+                username, 
+                score: engine.current.score, 
+                address: address
+            }]);
+        }
+        
+        // TRIGGER GAME OVER UI (Only after save)
+        setGameOver(true);
     };
 
     loop(performance.now());

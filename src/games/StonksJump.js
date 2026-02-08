@@ -118,7 +118,7 @@ const StonksJump = ({ onExit }) => {
         }
     };
 
-    const loop = (time) => {
+    const loop = async (time) => { // Made ASYNC
       const state = gameState.current;
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
@@ -172,6 +172,7 @@ const StonksJump = ({ onExit }) => {
             setScore(Math.floor(Math.abs(state.cameraY)));
         }
 
+        // ... [Platform Spawning Logic Omitted for brevity, assumed unchanged] ...
         state.platforms.sort((a,b) => a.y - b.y);
         const highest = state.platforms[0].y;
         if (highest > state.cameraY - 700) {
@@ -179,7 +180,6 @@ const StonksJump = ({ onExit }) => {
             const typeR = Math.random();
             let type = 'green';
             if (typeR > 0.8) type = 'blue';
-            
             state.platforms.push({
                 x: Math.random() * (canvas.width - 80),
                 y: highest - gap,
@@ -190,19 +190,27 @@ const StonksJump = ({ onExit }) => {
                 hasRocket: Math.random() > 0.95
             });
         }
-        
         state.platforms = state.platforms.filter(p => p.y < state.cameraY + canvas.height + 100);
 
+        // --- DEATH CHECK & ASYNC SAVE ---
         if (state.hero.y > state.cameraY + canvas.height) {
             state.active = false;
+            
+            if (username) {
+                 await supabase.from('leaderboards').insert([{
+                     game_id:'doodle', 
+                     username, 
+                     score: Math.floor(Math.abs(state.cameraY)), 
+                     address: address
+                 }]);
+            }
             setGameOver(true);
-            if (username) supabase.from('leaderboards').insert([{game_id:'doodle', username, score: Math.floor(Math.abs(state.cameraY)), address: address}]);
+            return; // Exit loop
         }
       }
 
       ctx.save();
       ctx.translate(0, -state.cameraY);
-
       state.platforms.forEach(p => {
           if (p.broken) return;
           if (p.moving && isPlaying) {
@@ -215,7 +223,6 @@ const StonksJump = ({ onExit }) => {
           drawSprite(p.type, p.x, p.y, p.w, p.h, color);
           if (p.hasRocket) drawSprite('rocket', p.x + 20, p.y - 30, 30, 30, 'gold');
       });
-
       drawSprite('hero', state.hero.x, state.hero.y, state.hero.w, state.hero.h, 'white');
       ctx.restore();
 

@@ -23,12 +23,12 @@ const GameUI = ({ score, gameOver, isPlaying, onRestart, onExit, gameId }) => {
     if (allTime) setAllTimeLeaders(allTime);
 
     // 2. Fetch DAILY (Top 5 by Score, Filtered by Today)
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
     const { data: daily } = await supabase
       .from('leaderboards')
       .select('username, score')
       .eq('game_id', gameId)
-      .gte('created_at', today) // Filter: Created today or later
+      .gte('created_at', today) 
       .order('score', { ascending: false })
       .limit(5);
 
@@ -41,7 +41,14 @@ const GameUI = ({ score, gameOver, isPlaying, onRestart, onExit, gameId }) => {
       <div className="overlay-layer">
         <div className="hud-score">{score}</div>
         {!isPlaying && (
-           <div className="countdown-number">READY?</div>
+           <div style={{
+               fontSize: '2rem', 
+               color: 'cyan', 
+               textShadow: '4px 4px 0px #000',
+               animation: 'pulse 1.5s infinite alternate'
+           }}>
+               PRESS TO START
+           </div>
         )}
       </div>
     );
