@@ -16,9 +16,9 @@ const FlappyDoge = ({ onExit }) => {
 
   // --- CONFIGURATION ---
   const CHARACTER_SIZE = 60; 
-  const PIPE_WIDTH = 100;     // INCREASED: Thicker pipes to show off the art
-  const PIPE_GAP = 180;       // INCREASED: More room to navigate between thick pipes
-  const HITBOX_PADDING = 20;  // INCREASED: More forgiveness on the edges
+  const PIPE_WIDTH = 130;     // INCREASED: +30% Width (was 100)
+  const PIPE_GAP = 180;       
+  const HITBOX_PADDING = 0;   // REMOVED: Zero padding (Exact hitbox)
 
   const engine = useRef({
     running: false,
@@ -124,8 +124,7 @@ const FlappyDoge = ({ onExit }) => {
         state.pipes.forEach(p => {
             p.x -= state.speed * dt;
 
-            // --- IMPROVED COLLISION ---
-            // The hitbox is strictly smaller than the visual pipe to account for art transparency/padding
+            // --- COLLISION LOGIC ---
             const birdHitbox = { 
                 x: state.bird.x + 12, 
                 y: state.bird.y + 12, 
@@ -133,19 +132,19 @@ const FlappyDoge = ({ onExit }) => {
                 h: state.bird.h - 24 
             };
 
-            // Calculate Pipe Hitbox (Visual Position + Padding)
-            const pipeLeft = p.x + HITBOX_PADDING;
-            const pipeRight = p.x + PIPE_WIDTH - HITBOX_PADDING;
+            // Hitbox is now exactly the pipe coordinates (Padding is 0)
+            const pipeLeft = p.x;
+            const pipeRight = p.x + PIPE_WIDTH;
 
             const hitTop = birdHitbox.y < p.topH;
             const hitBot = birdHitbox.y + birdHitbox.h > p.topH + p.gap;
             
-            // Collision Logic
+            // Check X Overlap
             const hitPipeX = (birdHitbox.x + birdHitbox.w > pipeLeft) && (birdHitbox.x < pipeRight);
 
             if (hitPipeX && (hitTop || hitBot)) handleDeath();
             
-            // Score Update (Trigger when fully passed the visual width)
+            // Score Update (using visual edge)
             if (!p.passed && p.x + PIPE_WIDTH < state.bird.x) {
                 p.passed = true;
                 state.score += 1;
@@ -159,8 +158,9 @@ const FlappyDoge = ({ onExit }) => {
       }
 
       state.pipes.forEach(p => {
-          drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_WIDTH, p.topH, true);
-          drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_WIDTH, canvas.height - (p.topH + p.gap), false);
+          // No rotation flag needed anymore, both draw straight up
+          drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_WIDTH, p.topH);
+          drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_WIDTH, canvas.height - (p.topH + p.gap));
       });
 
       drawSprite(ctx, state.sprites.doge, state.bird.x, state.bird.y, state.bird.w, state.bird.h, 'orange');
@@ -179,20 +179,12 @@ const FlappyDoge = ({ onExit }) => {
         }
     };
 
-    const drawScaledPipe = (ctx, img, x, y, w, h, isTop) => {
+    const drawScaledPipe = (ctx, img, x, y, w, h) => {
         if (img && img.complete && img.naturalWidth !== 0) {
-            ctx.save();
-            if (isTop) {
-                // Flip top pipe
-                ctx.translate(x + w / 2, y + h / 2);
-                ctx.rotate(Math.PI);
-                ctx.drawImage(img, -w / 2, -h / 2, w, h);
-            } else {
-                ctx.drawImage(img, x, y, w, h);
-            }
-            ctx.restore();
+            // FIXED: Removed rotation logic. Draws image upright always.
+            ctx.drawImage(img, x, y, w, h);
         } else {
-            ctx.fillStyle = isTop ? '#ff4444' : '#44ff44';
+            ctx.fillStyle = '#44ff44';
             ctx.fillRect(x, y, w, h);
         }
     };
