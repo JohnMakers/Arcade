@@ -16,7 +16,7 @@ const FlappyDoge = ({ onExit }) => {
 
   const engine = useRef({
     running: false,
-    bird: { x: 50, y: 300, vy: 0, w: 40, h: 40 },
+    bird: { x: 50, y: 300, vy: 0, w: 55, h: 55 },
     pipes: [],
     sprites: {},
     frame: 0,
@@ -129,7 +129,12 @@ const FlappyDoge = ({ onExit }) => {
 
         state.pipes.forEach(p => {
             p.x -= state.speed * dt;
-            const birdHitbox = { x: state.bird.x + 5, y: state.bird.y + 5, w: state.bird.w - 10, h: state.bird.h - 10 };
+            const birdHitbox = { 
+              x: state.bird.x + 8, 
+              y: state.bird.y + 8, 
+              w: state.bird.w - 16, 
+              h: state.bird.h - 16 
+          };
             const hitTop = birdHitbox.y < p.topH;
             const hitBot = birdHitbox.y + birdHitbox.h > p.topH + p.gap;
             const hitPipeX = birdHitbox.x + birdHitbox.w > p.x && birdHitbox.x < p.x + 50;
@@ -146,10 +151,14 @@ const FlappyDoge = ({ onExit }) => {
         state.frame++;
       }
 
+
+      
       state.pipes.forEach(p => {
-          drawSprite(ctx, state.sprites.pipe, p.x, 0, 50, p.topH, 'red');
-          drawSprite(ctx, state.sprites.pipe, p.x, p.topH + p.gap, 50, canvas.height, 'green'); 
-      });
+    // Top Pipe
+        this.drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, 50, p.topH, true);
+        // Bottom Pipe
+        this.drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, 50, canvas.height - (p.topH + p.gap), false);
+     });
       drawSprite(ctx, state.sprites.doge, state.bird.x, state.bird.y, state.bird.w, state.bird.h, 'orange');
       animationId = requestAnimationFrame(loop);
     };
@@ -184,5 +193,23 @@ const FlappyDoge = ({ onExit }) => {
     </div>
   );
 };
+
+  const drawScaledPipe = (ctx, img, x, y, w, h, isTop) => {
+    if (img && img.complete && img.naturalWidth !== 0) {
+        ctx.save();
+        // Flip the top pipe so the "head" of the candle/obstacle faces the gap
+        if (isTop) {
+            ctx.translate(x + w / 2, y + h / 2);
+            ctx.rotate(Math.PI);
+            ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        } else {
+            ctx.drawImage(img, x, y, w, h);
+        }
+        ctx.restore();
+    } else {
+        ctx.fillStyle = isTop ? 'red' : 'green';
+        ctx.fillRect(x, y, w, h);
+    }
+  };
 
 export default FlappyDoge;
