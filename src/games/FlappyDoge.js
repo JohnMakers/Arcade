@@ -29,19 +29,19 @@ const FlappyDoge = ({ onExit }) => {
   useEffect(() => {
     const load = (k, src) => {
         const img = new Image();
-        // Set crossOrigin only if the source is an external URL
-        if (src.startsWith('http')) {
-            img.crossOrigin = "Anonymous";
-        }
-        img.src = src; 
+        // Remove crossOrigin for local assets to avoid security blocks
+        img.src = src;
+        
         img.onload = () => {
-            console.log(`Loaded ${k} from ${src}`);
+            console.log(`Successfully loaded: ${k}`);
             engine.current.sprites[k] = img;
         };
+        
         img.onerror = () => {
-            console.error(`Failed to load image: ${src}. Check if the file exists in public/assets/`);
+            console.error(`Failed to load: ${src}. Is it in public/assets/?`);
         };
     };
+    
     load('doge', ASSETS.DOGE_HERO);
     load('pipe', ASSETS.RED_CANDLE);
   }, []);
