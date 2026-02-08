@@ -29,19 +29,22 @@ const FlappyDoge = ({ onExit }) => {
   useEffect(() => {
     const load = (k, src) => {
         const img = new Image();
-        // Remove crossOrigin for local assets to avoid security blocks
-        img.src = src;
         
+        // 1. Setup the behavior FIRST
         img.onload = () => {
-            console.log(`Successfully loaded: ${k}`);
+            console.log(`Successfully loaded ${k} from: ${src}`);
             engine.current.sprites[k] = img;
         };
         
         img.onerror = () => {
-            console.error(`Failed to load: ${src}. Is it in public/assets/?`);
+            console.error(`ERROR: Could not find image at ${src}. Verify the file is in public/assets/`);
         };
+
+        // 2. Set the source LAST
+        // We removed crossOrigin because it is not needed for local public folder files
+        img.src = src;
     };
-    
+
     load('doge', ASSETS.DOGE_HERO);
     load('pipe', ASSETS.RED_CANDLE);
   }, []);
