@@ -1,8 +1,8 @@
 // Centralized Asset Management
 export const ASSETS = {
   // --- FLAPPY DOGE ---
-  DOGE_HERO: "/assets/flappy_character.png",
-  RED_CANDLE: "/assets/flappy_obstacle.png", 
+  DOGE_HERO: "assets/flappy_character.png",
+  RED_CANDLE: "assets/flappy_obstacle.png", 
   
   // --- PEPE FROGGER ---
   PEPE_HERO: "https://upload.wikimedia.org/wikipedia/en/8/87/Pepe_the_Frog.jpg",
