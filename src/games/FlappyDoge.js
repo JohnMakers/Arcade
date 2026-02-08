@@ -14,32 +14,19 @@ const FlappyDoge = ({ onExit }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
 
-  // --- SENIOR DEV TUNING (VISUALS & HITBOXES) ---
-  
-  // 1. Debug Mode
-  // Set to TRUE to see the Red/Blue boxes. Set to FALSE for final game.
-  const DEBUG_MODE = true;    
-
-  // 2. Visuals (The Blue Box)
-  // If the pipe looks "squished", INCREASE this number.
-  // Try 80 or 90. This lets the image breathe.
-  const PIPE_IMAGE_WIDTH = 150; 
-  
-  // 3. Gameplay (The Red Box)
-  // This is the "Kill Zone". It MUST be smaller than the *visible* part of the pipe image.
-  // If players die without touching the pipe, LOWER this number.
-  const PIPE_HITBOX_WIDTH = 140; 
-  
-  // 4. Centering
-  // This math ensures the Hitbox (Red) sits perfectly inside the Image (Blue).
+  // --- CONFIGURATION ---
+  const DEBUG_MODE = false;    
+  const PIPE_IMAGE_WIDTH = 85; 
+  const PIPE_HITBOX_WIDTH = 50; 
   const PIPE_IMAGE_OFFSET = (PIPE_IMAGE_WIDTH - PIPE_HITBOX_WIDTH) / 2;
+  const CHARACTER_SIZE = 45; 
+  const BIRD_HITBOX_PADDING = 12; 
+  const PIPE_GAP = 160; // Slightly tighter gap for higher difficulty
 
-  // 5. Character
-  const CHARACTER_SIZE = 45; // Size of the Doge
-  const BIRD_HITBOX_PADDING = 4; // How much "grace" space around the Doge (higher = smaller hitbox)
-
-  // 6. Difficulty
-  const PIPE_GAP = 170; // Vertical space between pipes
+  // NEW: Spawn Logic
+  // instead of frames, we use pixels.
+  // 220px means there will always be ~2 pipes on screen (400px width / 220 = 1.8)
+  const SPAWN_DISTANCE = 220; 
 
   const engine = useRef({
     running: false,
@@ -49,6 +36,8 @@ const FlappyDoge = ({ onExit }) => {
     frame: 0,
     score: 0,
     speed: 3.5,
+    distanceTraveled: 0, // NEW: Tracks total pixels moved
+    bgOffset: 0,         // NEW: Tracks background scroll
     isDead: false,
     lastTime: 0
   });
@@ -60,8 +49,10 @@ const FlappyDoge = ({ onExit }) => {
         img.src = src;
     };
     load('doge', ASSETS.DOGE_HERO);
-    // Ensure this asset path is correct in your AssetConfig
-    load('pipe', ASSETS.RED_CANDLE); 
+    load('pipe', ASSETS.RED_CANDLE);
+    // NEW: Load Background
+    // If you don't have this asset yet, the code will just skip it and use blue color
+    load('bg', '/assets/flappy_bg.png'); 
   }, []);
 
   useEffect(() => {
@@ -100,43 +91,61 @@ const FlappyDoge = ({ onExit }) => {
     const ctx = canvas.getContext('2d');
     let animationId;
 
-    // Reset Engine
     engine.current.running = false; 
     engine.current.isDead = false;
     engine.current.score = 0;
     engine.current.speed = 3.5;
+    engine.current.distanceTraveled = 0;
     engine.current.bird = { x: 50, y: 300, vy: 0, w: CHARACTER_SIZE, h: CHARACTER_SIZE };
     engine.current.pipes = [];
     engine.current.frame = 0;
     engine.current.lastTime = performance.now();
 
+    // Pre-spawn the first pipe so the user doesn't wait
+    engine.current.pipes.push({ 
+        x: 400 + 100, // Start just off screen
+        topH: 200, 
+        gap: PIPE_GAP, 
+        passed: false 
+    });
+
     const GRAVITY = 0.5;
-    const MAX_SPEED = 7.0;
+    const MAX_SPEED = 6.5;
 
     const loop = (time) => {
       const state = engine.current;
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
-      // Draw Sky
-      const bgLevel = Math.min(1, state.score / 50);
-      const r = Math.floor(135 * (1 - bgLevel)); 
-      const g = Math.floor(206 * (1 - bgLevel)); 
-      const b = Math.floor(235 - (100 * bgLevel)); 
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+      // 1. Update Game State
       if (state.running && !state.isDead) {
+        // Speed scaling
         if (state.score > 0 && state.score % 5 === 0) {
-           const targetSpeed = 3.5 + (state.score * 0.1); 
+           const targetSpeed = 3.5 + (state.score * 0.15); 
            state.speed = Math.min(MAX_SPEED, targetSpeed);
         }
         
         state.bird.vy += GRAVITY * dt;
         state.bird.y += state.bird.vy * dt;
 
-        const spawnRate = Math.floor(180 / (state.speed / 3.5)); 
-        if (state.frame % spawnRate === 0) {
+        // Move Everything
+        const moveStep = state.speed * dt;
+        state.distanceTraveled += moveStep;
+        
+        // Background Parallax (Moves at 50% speed of pipes)
+        state.bgOffset += (moveStep * 0.5); 
+        if (state.bgOffset >= canvas.width) state.bgOffset = 0; // Loop it
+
+        // Pipe Spawning Logic (Distance Based)
+        // We look at the LAST pipe. If it has moved SPAWN_DISTANCE away from the right edge, spawn a new one.
+        const lastPipe = state.pipes[state.pipes.length - 1];
+        const rightEdge = canvas.width;
+        
+        // If the last pipe is at X, and the screen edge is at 400.
+        // We want (400 - lastPipe.x) >= SPAWN_DISTANCE? No.
+        // We want: When the last pipe has moved SPAWN_DISTANCE pixels to the left.
+        // New Logic: If (CanvasWidth - LastPipeX) > SPAWN_DISTANCE
+        if (lastPipe && (canvas.width - lastPipe.x >= SPAWN_DISTANCE)) {
             const minPipe = 60;
             const maxPipe = canvas.height - PIPE_GAP - minPipe;
             const topH = Math.random() * (maxPipe - minPipe) + minPipe;
@@ -144,11 +153,10 @@ const FlappyDoge = ({ onExit }) => {
             state.pipes.push({ x: canvas.width, topH, gap: PIPE_GAP, passed: false });
         }
 
-        // Logic & Collision
+        // Move & Collide Pipes
         state.pipes.forEach(p => {
-            p.x -= state.speed * dt;
+            p.x -= moveStep;
 
-            // Bird Hitbox (The "Heart" of the bird)
             const birdHitbox = { 
                 x: state.bird.x + BIRD_HITBOX_PADDING, 
                 y: state.bird.y + BIRD_HITBOX_PADDING, 
@@ -156,8 +164,6 @@ const FlappyDoge = ({ onExit }) => {
                 h: state.bird.h - (BIRD_HITBOX_PADDING * 2) 
             };
 
-            // Pipe Hitbox (The "Killer" Wall)
-            // Note: We use p.x for logic, but we draw the image at p.x - offset
             const pipeLeft = p.x; 
             const pipeRight = p.x + PIPE_HITBOX_WIDTH;
 
@@ -175,54 +181,48 @@ const FlappyDoge = ({ onExit }) => {
         });
 
         if (state.bird.y > canvas.height - state.bird.h || state.bird.y < -50) handleDeath();
-        state.pipes = state.pipes.filter(p => p.x + PIPE_IMAGE_WIDTH > -50);
+        
+        // Cleanup off-screen pipes
+        state.pipes = state.pipes.filter(p => p.x + PIPE_IMAGE_WIDTH > -100);
         state.frame++;
       }
 
-      // --- RENDERING ---
+      // 2. Render
+      
+      // Draw Background
+      if (state.sprites.bg && state.sprites.bg.complete) {
+          // Draw two copies of the BG to make it loop seamlessly
+          // Image 1: shifting left
+          const bgX = -state.bgOffset; 
+          ctx.drawImage(state.sprites.bg, bgX, 0, canvas.width, canvas.height);
+          
+          // Image 2: following right behind
+          ctx.drawImage(state.sprites.bg, bgX + canvas.width, 0, canvas.width, canvas.height);
+      } else {
+          // Fallback Sky
+          ctx.fillStyle = "#70c5ce"; 
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // Draw Pipes
       state.pipes.forEach(p => {
-          // Draw Image centered on the hitbox
-          // p.x is the LEFT edge of the hitbox.
-          // We shift the image LEFT by 'offset' so the hitbox stays in the middle.
           const drawX = p.x - PIPE_IMAGE_OFFSET;
           
-          // Draw Top Pipe
+          // Top Pipe
           drawPipe(ctx, state.sprites.pipe, drawX, 0, PIPE_IMAGE_WIDTH, p.topH);
           
-          // Draw Bottom Pipe
+          // Bottom Pipe
           drawPipe(ctx, state.sprites.pipe, drawX, p.topH + p.gap, PIPE_IMAGE_WIDTH, canvas.height - (p.topH + p.gap));
           
           if (DEBUG_MODE) {
-              // RED BOX = The Logic (If you touch this, you die)
-              // It should be INSIDE the pipe image.
-              ctx.strokeStyle = "rgba(255, 0, 0, 0.8)"; // Bright Red
-              ctx.lineWidth = 3;
+              ctx.strokeStyle = "red";
               ctx.strokeRect(p.x, 0, PIPE_HITBOX_WIDTH, p.topH); 
               ctx.strokeRect(p.x, p.topH + p.gap, PIPE_HITBOX_WIDTH, canvas.height);
-
-              // BLUE BOX = The Visual (The image texture)
-              // It should be WIDER than the Red Box.
-              ctx.strokeStyle = "rgba(0, 0, 255, 0.5)"; // Blue
-              ctx.lineWidth = 1;
-              ctx.strokeRect(drawX, 0, PIPE_IMAGE_WIDTH, p.topH);
-              ctx.strokeRect(drawX, p.topH + p.gap, PIPE_IMAGE_WIDTH, canvas.height);
           }
       });
 
       // Draw Bird
       drawSprite(ctx, state.sprites.doge, state.bird.x, state.bird.y, state.bird.w, state.bird.h);
-      
-      if (DEBUG_MODE) {
-          // Green Box = Bird Hitbox
-          ctx.strokeStyle = "lime";
-          ctx.lineWidth = 2;
-          ctx.strokeRect(
-              state.bird.x + BIRD_HITBOX_PADDING, 
-              state.bird.y + BIRD_HITBOX_PADDING, 
-              state.bird.w - (BIRD_HITBOX_PADDING * 2), 
-              state.bird.h - (BIRD_HITBOX_PADDING * 2)
-          );
-      }
 
       animationId = requestAnimationFrame(loop);
     };
@@ -238,10 +238,17 @@ const FlappyDoge = ({ onExit }) => {
 
     const drawPipe = (ctx, img, x, y, w, h) => {
         if (img && img.complete && img.naturalWidth !== 0) {
-            // We draw the full image stretched to the new W/H
-            // If this still looks weird, we might need to use 'slice' rendering (9-slice),
-            // but usually stretching is fine for pipes.
-            ctx.drawImage(img, x, y, w, h);
+            // Apply source clipping here if you kept that change
+            const sourceWidth = img.naturalWidth;
+            const sourceHeight = img.naturalHeight;
+            const cropX = sourceWidth * 0.25; 
+            const cropWidth = sourceWidth * 0.50; 
+            
+            ctx.drawImage(
+                img, 
+                cropX, 0, cropWidth, sourceHeight,
+                x, y, w, h
+            );
         } else {
             ctx.fillStyle = '#44ff44';
             ctx.fillRect(x, y, w, h);
