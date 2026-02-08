@@ -23,12 +23,12 @@ const FlappyDoge = ({ onExit }) => {
   // 2. Visuals (The Blue Box)
   // If the pipe looks "squished", INCREASE this number.
   // Try 80 or 90. This lets the image breathe.
-  const PIPE_IMAGE_WIDTH = 85; 
+  const PIPE_IMAGE_WIDTH = 150; 
   
   // 3. Gameplay (The Red Box)
   // This is the "Kill Zone". It MUST be smaller than the *visible* part of the pipe image.
   // If players die without touching the pipe, LOWER this number.
-  const PIPE_HITBOX_WIDTH = 50; 
+  const PIPE_HITBOX_WIDTH = 30; 
   
   // 4. Centering
   // This math ensures the Hitbox (Red) sits perfectly inside the Image (Blue).
