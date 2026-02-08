@@ -15,18 +15,20 @@ const FlappyDoge = ({ onExit }) => {
   const [resetKey, setResetKey] = useState(0);
 
   // --- CONFIGURATION ---
-  const DEBUG_MODE = true;    // <--- SET TO FALSE TO HIDE RED BOXES
+  const DEBUG_MODE = true;    // Set to FALSE when happy with hitboxes
   const CHARACTER_SIZE = 60; 
-  const PIPE_WIDTH = 180;     // INCREASED: Very thick pipes
-  const PIPE_GAP = 220;       // INCREASED: More space to fit the character
   
-  // --- HITBOX TUNING ---
-  // This value shrinks the "Kill Zone" of the pipe horizontally.
-  // A value of 15 means the player can visually touch 15px of the pipe before dying.
-  const PIPE_HITBOX_PADDING = 15; 
+  // VISUAL SETTINGS
+  const PIPE_IMAGE_WIDTH = 180; // The actual width we draw the image
+  const PIPE_GAP = 220;
+  
+  // HITBOX SETTINGS
+  // Negative padding means the hitbox is SMALLER than the image (forgiveness)
+  // Positive padding means the hitbox is LARGER (harder)
+  // We use a small positive padding here to pull the hitbox INWARDS from the edge of the sprite
+  // effectively ignoring the outer 10px of the pipe image.
+  const PIPE_HITBOX_INSET = 10; 
 
-  // This value shrinks the doge's hitbox.
-  // We ignore 22px from each side, leaving a small 16px "heart" core.
   const CHAR_HITBOX_SHRINK = 22; 
 
   const engine = useRef({
@@ -131,7 +133,7 @@ const FlappyDoge = ({ onExit }) => {
 
             // --- COLLISION LOGIC ---
             
-            // 1. Define Bird Hitbox (Small Core)
+            // 1. Bird Hitbox (Small Core)
             const birdHitbox = { 
                 x: state.bird.x + CHAR_HITBOX_SHRINK, 
                 y: state.bird.y + CHAR_HITBOX_SHRINK, 
@@ -139,21 +141,21 @@ const FlappyDoge = ({ onExit }) => {
                 h: state.bird.h - (CHAR_HITBOX_SHRINK * 2) 
             };
 
-            // 2. Define Pipe Hitbox (Visual width minus padding)
-            // This allows the player to overlap the pipe image by 15px without dying
-            const pipeLeft = p.x + PIPE_HITBOX_PADDING;
-            const pipeRight = p.x + PIPE_WIDTH - PIPE_HITBOX_PADDING;
+            // 2. Pipe Hitbox (Visually smaller than image)
+            // p.x is the start of the image.
+            // Hitbox starts at p.x + INSET
+            const pipeLeft = p.x + PIPE_HITBOX_INSET;
+            const pipeRight = p.x + PIPE_IMAGE_WIDTH - PIPE_HITBOX_INSET;
 
             const hitTop = birdHitbox.y < p.topH;
             const hitBot = birdHitbox.y + birdHitbox.h > p.topH + p.gap;
             
-            // X-Axis Overlap Check
             const hitPipeX = (birdHitbox.x + birdHitbox.w > pipeLeft) && (birdHitbox.x < pipeRight);
 
             if (hitPipeX && (hitTop || hitBot)) handleDeath();
             
-            // Score Update (Use Visual Edge so it feels responsive)
-            if (!p.passed && p.x + PIPE_WIDTH < state.bird.x) {
+            // Score Update: Use visual edge (PIPE_IMAGE_WIDTH)
+            if (!p.passed && p.x + PIPE_IMAGE_WIDTH < state.bird.x) {
                 p.passed = true;
                 state.score += 1;
                 setScore(state.score); 
@@ -161,31 +163,31 @@ const FlappyDoge = ({ onExit }) => {
         });
 
         if (state.bird.y > canvas.height - state.bird.h || state.bird.y < -50) handleDeath();
-        state.pipes = state.pipes.filter(p => p.x + PIPE_WIDTH > 0);
+        state.pipes = state.pipes.filter(p => p.x + PIPE_IMAGE_WIDTH > 0);
         state.frame++;
       }
 
       state.pipes.forEach(p => {
-          drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_WIDTH, p.topH);
-          drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_WIDTH, canvas.height - (p.topH + p.gap));
+          // Draw Image Full Width
+          drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_IMAGE_WIDTH, p.topH);
+          drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_IMAGE_WIDTH, canvas.height - (p.topH + p.gap));
           
-          // DEBUG: Draw Pipe Hitboxes
+          // DEBUG: Draw Hitboxes (Aligned with Insets)
           if (DEBUG_MODE) {
               ctx.strokeStyle = "red";
               ctx.lineWidth = 2;
-              const pLeft = p.x + PIPE_HITBOX_PADDING;
-              const pWidth = PIPE_WIDTH - (PIPE_HITBOX_PADDING * 2);
+              const hbLeft = p.x + PIPE_HITBOX_INSET;
+              const hbWidth = PIPE_IMAGE_WIDTH - (PIPE_HITBOX_INSET * 2);
               
               // Top Box
-              ctx.strokeRect(pLeft, 0, pWidth, p.topH);
+              ctx.strokeRect(hbLeft, 0, hbWidth, p.topH);
               // Bottom Box
-              ctx.strokeRect(pLeft, p.topH + p.gap, pWidth, canvas.height);
+              ctx.strokeRect(hbLeft, p.topH + p.gap, hbWidth, canvas.height);
           }
       });
 
       drawSprite(ctx, state.sprites.doge, state.bird.x, state.bird.y, state.bird.w, state.bird.h, 'orange');
       
-      // DEBUG: Draw Bird Hitbox
       if (DEBUG_MODE) {
           ctx.strokeStyle = "lime";
           ctx.lineWidth = 2;
@@ -212,6 +214,7 @@ const FlappyDoge = ({ onExit }) => {
 
     const drawScaledPipe = (ctx, img, x, y, w, h) => {
         if (img && img.complete && img.naturalWidth !== 0) {
+            // Draw image filling the entire width w
             ctx.drawImage(img, x, y, w, h);
         } else {
             ctx.fillStyle = '#44ff44';
