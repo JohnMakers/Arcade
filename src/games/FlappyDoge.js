@@ -16,9 +16,13 @@ const FlappyDoge = ({ onExit }) => {
 
   // --- CONFIGURATION ---
   const CHARACTER_SIZE = 60; 
-  const PIPE_WIDTH = 130;     // INCREASED: +30% Width (was 100)
+  const PIPE_WIDTH = 160;     // INCREASED: Made them significantly wider (was 130)
   const PIPE_GAP = 180;       
-  const HITBOX_PADDING = 0;   // REMOVED: Zero padding (Exact hitbox)
+  const HITBOX_PADDING = 0;   // Pipe matches image exactly (no padding)
+
+  // NEW: Character specific padding. 
+  // We ignore 20px from each side of the doge, creating a small "core" hitbox.
+  const CHAR_HITBOX_SHRINK = 20; 
 
   const engine = useRef({
     running: false,
@@ -124,17 +128,18 @@ const FlappyDoge = ({ onExit }) => {
         state.pipes.forEach(p => {
             p.x -= state.speed * dt;
 
-            // --- COLLISION LOGIC ---
+            // --- FIXED COLLISION LOGIC ---
+            // TIGHTER HITBOX: We shrink the bird hitbox significantly to avoid "invisible" deaths
             const birdHitbox = { 
-                x: state.bird.x + 12, 
-                y: state.bird.y + 12, 
-                w: state.bird.w - 24, 
-                h: state.bird.h - 24 
+                x: state.bird.x + CHAR_HITBOX_SHRINK, 
+                y: state.bird.y + CHAR_HITBOX_SHRINK, 
+                w: state.bird.w - (CHAR_HITBOX_SHRINK * 2), 
+                h: state.bird.h - (CHAR_HITBOX_SHRINK * 2) 
             };
 
-            // Hitbox is now exactly the pipe coordinates (Padding is 0)
-            const pipeLeft = p.x;
-            const pipeRight = p.x + PIPE_WIDTH;
+            // Pipe Hitbox (Exact visual match)
+            const pipeLeft = p.x + HITBOX_PADDING;
+            const pipeRight = p.x + PIPE_WIDTH - HITBOX_PADDING;
 
             const hitTop = birdHitbox.y < p.topH;
             const hitBot = birdHitbox.y + birdHitbox.h > p.topH + p.gap;
@@ -158,13 +163,26 @@ const FlappyDoge = ({ onExit }) => {
       }
 
       state.pipes.forEach(p => {
-          // No rotation flag needed anymore, both draw straight up
           drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_WIDTH, p.topH);
           drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_WIDTH, canvas.height - (p.topH + p.gap));
       });
 
+      // Draw Bird
       drawSprite(ctx, state.sprites.doge, state.bird.x, state.bird.y, state.bird.w, state.bird.h, 'orange');
       
+      // OPTIONAL DEBUG: Uncomment to see the hitboxes if issues persist
+      /*
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+      const hb = { 
+          x: state.bird.x + CHAR_HITBOX_SHRINK, 
+          y: state.bird.y + CHAR_HITBOX_SHRINK, 
+          w: state.bird.w - (CHAR_HITBOX_SHRINK * 2), 
+          h: state.bird.h - (CHAR_HITBOX_SHRINK * 2) 
+      };
+      ctx.strokeRect(hb.x, hb.y, hb.w, hb.h);
+      */
+
       animationId = requestAnimationFrame(loop);
     };
 
@@ -181,7 +199,7 @@ const FlappyDoge = ({ onExit }) => {
 
     const drawScaledPipe = (ctx, img, x, y, w, h) => {
         if (img && img.complete && img.naturalWidth !== 0) {
-            // FIXED: Removed rotation logic. Draws image upright always.
+            // Draws image upright always (No rotation)
             ctx.drawImage(img, x, y, w, h);
         } else {
             ctx.fillStyle = '#44ff44';
