@@ -16,12 +16,11 @@ const FlappyDoge = ({ onExit }) => {
 
   // --- CONFIGURATION ---
   const CHARACTER_SIZE = 60; 
-  const PIPE_WIDTH = 160;     // INCREASED: Made them significantly wider (was 130)
+  const PIPE_WIDTH = 140;     // INCREASED: 40% Wider (was 100)
   const PIPE_GAP = 180;       
-  const HITBOX_PADDING = 0;   // Pipe matches image exactly (no padding)
+  const HITBOX_PADDING = 0;   // REMOVED: Exact hitbox, no horizontal padding
 
-  // NEW: Character specific padding. 
-  // We ignore 20px from each side of the doge, creating a small "core" hitbox.
+  // PRESERVED: Shrink bird hitbox to avoid dying on transparent corners
   const CHAR_HITBOX_SHRINK = 20; 
 
   const engine = useRef({
@@ -39,11 +38,8 @@ const FlappyDoge = ({ onExit }) => {
   useEffect(() => {
     const load = (k, src) => {
         const img = new Image();
-        img.onload = () => {
-            console.log(`Loaded ${k} successfully`);
-            engine.current.sprites[k] = img;
-        };
-        img.onerror = () => console.error(`Failed to load ${k} from ${src}`);
+        img.onload = () => engine.current.sprites[k] = img;
+        img.onerror = () => console.error(`Failed to load ${k}`);
         img.src = src;
     };
     load('doge', ASSETS.DOGE_HERO);
@@ -128,8 +124,8 @@ const FlappyDoge = ({ onExit }) => {
         state.pipes.forEach(p => {
             p.x -= state.speed * dt;
 
-            // --- FIXED COLLISION LOGIC ---
-            // TIGHTER HITBOX: We shrink the bird hitbox significantly to avoid "invisible" deaths
+            // --- COLLISION LOGIC ---
+            // Bird Hitbox (Shrunk to core)
             const birdHitbox = { 
                 x: state.bird.x + CHAR_HITBOX_SHRINK, 
                 y: state.bird.y + CHAR_HITBOX_SHRINK, 
@@ -138,18 +134,17 @@ const FlappyDoge = ({ onExit }) => {
             };
 
             // Pipe Hitbox (Exact visual match)
-            const pipeLeft = p.x + HITBOX_PADDING;
-            const pipeRight = p.x + PIPE_WIDTH - HITBOX_PADDING;
+            const pipeLeft = p.x;
+            const pipeRight = p.x + PIPE_WIDTH;
 
             const hitTop = birdHitbox.y < p.topH;
             const hitBot = birdHitbox.y + birdHitbox.h > p.topH + p.gap;
             
-            // Check X Overlap
             const hitPipeX = (birdHitbox.x + birdHitbox.w > pipeLeft) && (birdHitbox.x < pipeRight);
 
             if (hitPipeX && (hitTop || hitBot)) handleDeath();
             
-            // Score Update (using visual edge)
+            // Score Update
             if (!p.passed && p.x + PIPE_WIDTH < state.bird.x) {
                 p.passed = true;
                 state.score += 1;
@@ -163,26 +158,14 @@ const FlappyDoge = ({ onExit }) => {
       }
 
       state.pipes.forEach(p => {
+          // Top Pipe (Upright)
           drawScaledPipe(ctx, state.sprites.pipe, p.x, 0, PIPE_WIDTH, p.topH);
+          // Bottom Pipe (Upright)
           drawScaledPipe(ctx, state.sprites.pipe, p.x, p.topH + p.gap, PIPE_WIDTH, canvas.height - (p.topH + p.gap));
       });
 
-      // Draw Bird
       drawSprite(ctx, state.sprites.doge, state.bird.x, state.bird.y, state.bird.w, state.bird.h, 'orange');
       
-      // OPTIONAL DEBUG: Uncomment to see the hitboxes if issues persist
-      /*
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 2;
-      const hb = { 
-          x: state.bird.x + CHAR_HITBOX_SHRINK, 
-          y: state.bird.y + CHAR_HITBOX_SHRINK, 
-          w: state.bird.w - (CHAR_HITBOX_SHRINK * 2), 
-          h: state.bird.h - (CHAR_HITBOX_SHRINK * 2) 
-      };
-      ctx.strokeRect(hb.x, hb.y, hb.w, hb.h);
-      */
-
       animationId = requestAnimationFrame(loop);
     };
 
@@ -199,7 +182,7 @@ const FlappyDoge = ({ onExit }) => {
 
     const drawScaledPipe = (ctx, img, x, y, w, h) => {
         if (img && img.complete && img.naturalWidth !== 0) {
-            // Draws image upright always (No rotation)
+            // FIXED: Draws image upright always (Removed rotation logic)
             ctx.drawImage(img, x, y, w, h);
         } else {
             ctx.fillStyle = '#44ff44';
