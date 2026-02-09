@@ -7,12 +7,12 @@ export const ASSETS = {
   
   // --- PEPE FROGGER ---
   PEPE_HERO: "https://upload.wikimedia.org/wikipedia/en/8/87/Pepe_the_Frog.jpg",
-  NORMIE_CAR: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/480px-Cat03.jpg", 
+  NORMIE_CAR: "assets/frogger_obstacle.png", 
   TROLL_BUS: "https://upload.wikimedia.org/wikipedia/en/9/9a/Trollface_non-free.png", 
   NYAN_LOG: "https://upload.wikimedia.org/wikipedia/en/e/ed/Nyan_cat_250px_frame.PNG",
   MATRIX_GLITCH: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/480px-Apple_logo_black.svg.png", 
-  GOLDEN_PEPE: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Rocket_emoji.svg/480px-Rocket_emoji.svg.png", 
-  TENDIE_SHIELD: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Warning_sign.svg/480px-Warning_sign.svg.png", 
+  GOLDEN_PEPE: "assets/frogger_tendie.png", 
+  TENDIE_SHIELD: "assets/frogger_shield.png", 
   TEXTURE_GRASS: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Matrix_code.svg/512px-Matrix_code.svg.png", 
   TEXTURE_ROAD: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Asphalt_texture.jpg/640px-Asphalt_texture.jpg", 
   TEXTURE_WATER: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Blue_noise_2.png/640px-Blue_noise_2.png", 
