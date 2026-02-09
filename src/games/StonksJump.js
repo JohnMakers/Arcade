@@ -14,19 +14,21 @@ const StonksJump = ({ onExit }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
 
-  // --- SENIOR DEV TUNING (ZOOMED IN MODE) ---
-  // Increased Scale from 2.0 -> 2.4 to make everything look "closer" and bigger
-  const SCALE = 2.4; 
+  // --- SENIOR DEV TUNING (BIGGER & BOLDER) ---
+  const SCALE = 2; 
   
-  const HERO_SIZE = 55 * SCALE; // ~132px (Big & Clear)
-  const PLAT_W = 100 * SCALE;   // ~240px (30% of screen width)
+  // 1. DIMENSIONS: Increased by ~25% to fix "Small Feel"
+  // Previous: 40 * 2 = 80px. New: 55 * 2 = 110px.
+  const HERO_SIZE = 55 * SCALE; 
+  // Previous: 80 * 2 = 160px. New: 100 * 2 = 200px (1/4th of screen width)
+  const PLAT_W = 100 * SCALE;    
   const PLAT_H = 20 * SCALE;    
 
-  // Physics retuned for the heavier mass
-  const GRAVITY = 0.65 * SCALE; 
-  const JUMP = -15.5 * SCALE;   
-  const SPEED = 8.5 * SCALE;      
-  const BOUNCE_ROCKET = -42 * SCALE;
+  // 2. PHYSICS: Retuned for heavier/larger characters
+  const GRAVITY = 0.55 * SCALE; // slightly heavier
+  const JUMP = -14.5 * SCALE;   // stronger jump to compensate gravity
+  const SPEED = 8 * SCALE;      // slightly faster lateral movement
+  const BOUNCE_ROCKET = -40 * SCALE;
 
   const gameState = useRef({
     hero: { x: 300, y: 600, vx: 0, vy: 0, w: HERO_SIZE, h: HERO_SIZE },
@@ -51,6 +53,8 @@ const StonksJump = ({ onExit }) => {
     loadSprite('red', ASSETS.PLATFORM_RED);
     loadSprite('blue', ASSETS.PLATFORM_BLUE);
     loadSprite('rocket', ASSETS.ROCKET);
+    
+    // Load Backgrounds
     loadSprite('bg1', ASSETS.STONKS_BG_1 || ASSETS.FLAPPY_BACKGROUND); 
     loadSprite('bg2', ASSETS.STONKS_BG_2 || ASSETS.FLAPPY_BACKGROUND);
     loadSprite('bg3', ASSETS.STONKS_BG_3 || ASSETS.CHAD_BG);
@@ -74,7 +78,6 @@ const StonksJump = ({ onExit }) => {
         if (touch) {
             const rect = wrapper.getBoundingClientRect();
             const relativeX = touch.clientX - rect.left;
-            // Map screen tap to HD canvas coordinates
             const scaleX = 800 / rect.width; 
             gameState.current.touchX = relativeX * scaleX;
         }
@@ -109,7 +112,8 @@ const StonksJump = ({ onExit }) => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // Clean look
+    // --- SHARPNESS FIX ---
+    // If your assets are pixel art, uncomment this:
     // ctx.imageSmoothingEnabled = false; 
 
     let animationId;
@@ -118,12 +122,12 @@ const StonksJump = ({ onExit }) => {
     gameState.current.hero = { x: 350, y: 800, vx: 0, vy: 0, w: HERO_SIZE, h: HERO_SIZE };
     gameState.current.cameraY = 0;
     
-    // Initial Platforms
+    // Initial Platforms (Wider spread)
     gameState.current.platforms = [
         { x: 300, y: 1100, w: PLAT_W, h: PLAT_H, type: 'green' },
         { x: 300, y: 800, w: PLAT_W, h: PLAT_H, type: 'green' },
-        { x: 100, y: 500, w: PLAT_W, h: PLAT_H, type: 'green' },
-        { x: 500, y: 250, w: PLAT_W, h: PLAT_H, type: 'green' }
+        { x: 100, y: 550, w: PLAT_W, h: PLAT_H, type: 'green' },
+        { x: 500, y: 300, w: PLAT_W, h: PLAT_H, type: 'green' }
     ];
     gameState.current.lastTime = performance.now();
 
@@ -182,7 +186,7 @@ const StonksJump = ({ onExit }) => {
         if (state.hero.vy > 0) { 
             state.platforms.forEach(p => {
                 const footX = state.hero.x + (state.hero.w * 0.25);
-                const footW = state.hero.w * 0.5; 
+                const footW = state.hero.w * 0.5; // Tighter foot hitbox
                 const footY = state.hero.y + state.hero.h;
 
                 if (!p.broken &&
@@ -213,9 +217,10 @@ const StonksJump = ({ onExit }) => {
         const highest = state.platforms[0].y;
         
         if (highest > state.cameraY - 200) { 
-            // Wider gaps for bigger scaling
+            // Wider gaps for bigger jumps
             const gap = (Math.random() * 120 + 80) * SCALE; 
             const y = highest - gap;
+            // Ensure platform stays within bounds considering new Width
             const x = Math.random() * (canvas.width - PLAT_W);
 
             const currentScore = Math.abs(state.cameraY / SCALE);
@@ -300,17 +305,9 @@ const StonksJump = ({ onExit }) => {
   }, [resetKey, gameOver]);
 
   return (
-    // FIX: Added position: 'relative' here. This anchors the GameUI so it fits exactly over the canvas.
-    <div 
-        ref={containerRef} 
-        className="game-wrapper" 
-        tabIndex="0" 
-        onClick={() => containerRef.current.focus()}
-        style={{ position: 'relative', width: '100%', maxWidth: '500px', margin: '0 auto' }} 
-    >
+    <div ref={containerRef} className="game-wrapper" tabIndex="0" onClick={() => containerRef.current.focus()}>
         <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setResetKey(prev => prev + 1); }} onExit={onExit} gameId="doodle" />
-        {/* We keep the canvas layout simple. maxWidth: 100% ensures it fits in the parent box. */}
-        <canvas ref={canvasRef} width={800} height={1200} style={{ width: '100%', height: 'auto', display: 'block' }} />
+        <canvas ref={canvasRef} width={800} height={1200} style={{ width: '100%', maxWidth: '500px', height: 'auto' }} />
     </div>
   );
 };
