@@ -10,7 +10,7 @@ export const ASSETS = {
   NORMIE_CAR: "assets/frogger_obstacle.png", 
   TROLL_BUS: "https://upload.wikimedia.org/wikipedia/en/9/9a/Trollface_non-free.png", 
   NYAN_LOG: "https://upload.wikimedia.org/wikipedia/en/e/ed/Nyan_cat_250px_frame.PNG",
-  MATRIX_GLITCH: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/480px-Apple_logo_black.svg.png", 
+  MATRIX_GLITCH: "assets/frogger_obstacle2.png", 
   GOLDEN_PEPE: "assets/frogger_tendie.png", 
   TENDIE_SHIELD: "assets/frogger_shield.png", 
   TEXTURE_GRASS: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Matrix_code.svg/512px-Matrix_code.svg.png", 
