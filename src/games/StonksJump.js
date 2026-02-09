@@ -17,17 +17,15 @@ const StonksJump = ({ onExit }) => {
   // --- SENIOR DEV TUNING (BIGGER & BOLDER) ---
   const SCALE = 2; 
   
-  // 1. DIMENSIONS: Increased by ~25% to fix "Small Feel"
-  // Previous: 40 * 2 = 80px. New: 55 * 2 = 110px.
+  // 1. DIMENSIONS
   const HERO_SIZE = 55 * SCALE; 
-  // Previous: 80 * 2 = 160px. New: 100 * 2 = 200px (1/4th of screen width)
   const PLAT_W = 100 * SCALE;    
   const PLAT_H = 20 * SCALE;    
 
-  // 2. PHYSICS: Retuned for heavier/larger characters
-  const GRAVITY = 0.55 * SCALE; // slightly heavier
-  const JUMP = -14.5 * SCALE;   // stronger jump to compensate gravity
-  const SPEED = 8 * SCALE;      // slightly faster lateral movement
+  // 2. PHYSICS
+  const GRAVITY = 0.55 * SCALE; 
+  const JUMP = -14.5 * SCALE;   
+  const SPEED = 8 * SCALE;      
   const BOUNCE_ROCKET = -40 * SCALE;
 
   const gameState = useRef({
@@ -53,8 +51,6 @@ const StonksJump = ({ onExit }) => {
     loadSprite('red', ASSETS.PLATFORM_RED);
     loadSprite('blue', ASSETS.PLATFORM_BLUE);
     loadSprite('rocket', ASSETS.ROCKET);
-    
-    // Load Backgrounds
     loadSprite('bg1', ASSETS.STONKS_BG_1 || ASSETS.FLAPPY_BACKGROUND); 
     loadSprite('bg2', ASSETS.STONKS_BG_2 || ASSETS.FLAPPY_BACKGROUND);
     loadSprite('bg3', ASSETS.STONKS_BG_3 || ASSETS.CHAD_BG);
@@ -71,7 +67,9 @@ const StonksJump = ({ onExit }) => {
     const wrapper = containerRef.current;
     
     const handleTouch = (e) => {
+        // Allow interaction with buttons
         if (e.target.closest('button') || e.target.closest('.interactive')) return;
+        
         if (e.cancelable) e.preventDefault(); 
         
         const touch = e.touches[0];
@@ -84,6 +82,11 @@ const StonksJump = ({ onExit }) => {
     };
 
     const handleTouchEnd = (e) => {
+        // --- FIX: BUTTON CLICK PROTECTION ---
+        // We must perform the same check here. If we preventDefault on a button lift,
+        // the browser will cancel the 'click' event.
+        if (e.target.closest('button') || e.target.closest('.interactive')) return;
+
         if (e.cancelable) e.preventDefault();
         gameState.current.touchX = null;
     };
@@ -112,8 +115,6 @@ const StonksJump = ({ onExit }) => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // --- SHARPNESS FIX ---
-    // If your assets are pixel art, uncomment this:
     // ctx.imageSmoothingEnabled = false; 
 
     let animationId;
@@ -122,7 +123,6 @@ const StonksJump = ({ onExit }) => {
     gameState.current.hero = { x: 350, y: 800, vx: 0, vy: 0, w: HERO_SIZE, h: HERO_SIZE };
     gameState.current.cameraY = 0;
     
-    // Initial Platforms (Wider spread)
     gameState.current.platforms = [
         { x: 300, y: 1100, w: PLAT_W, h: PLAT_H, type: 'green' },
         { x: 300, y: 800, w: PLAT_W, h: PLAT_H, type: 'green' },
@@ -186,7 +186,7 @@ const StonksJump = ({ onExit }) => {
         if (state.hero.vy > 0) { 
             state.platforms.forEach(p => {
                 const footX = state.hero.x + (state.hero.w * 0.25);
-                const footW = state.hero.w * 0.5; // Tighter foot hitbox
+                const footW = state.hero.w * 0.5; 
                 const footY = state.hero.y + state.hero.h;
 
                 if (!p.broken &&
@@ -217,10 +217,8 @@ const StonksJump = ({ onExit }) => {
         const highest = state.platforms[0].y;
         
         if (highest > state.cameraY - 200) { 
-            // Wider gaps for bigger jumps
             const gap = (Math.random() * 120 + 80) * SCALE; 
             const y = highest - gap;
-            // Ensure platform stays within bounds considering new Width
             const x = Math.random() * (canvas.width - PLAT_W);
 
             const currentScore = Math.abs(state.cameraY / SCALE);
@@ -305,9 +303,10 @@ const StonksJump = ({ onExit }) => {
   }, [resetKey, gameOver]);
 
   return (
-    <div ref={containerRef} className="game-wrapper" tabIndex="0" onClick={() => containerRef.current.focus()}>
+    // FIX 2: Added 'position: relative' to ensure the GameUI stays anchored to this box
+    <div ref={containerRef} className="game-wrapper" tabIndex="0" onClick={() => containerRef.current.focus()} style={{ position: 'relative' }}>
         <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setResetKey(prev => prev + 1); }} onExit={onExit} gameId="doodle" />
-        <canvas ref={canvasRef} width={800} height={1200} style={{ width: '100%', maxWidth: '500px', height: 'auto' }} />
+        <canvas ref={canvasRef} width={800} height={1200} style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block' }} />
     </div>
   );
 };
