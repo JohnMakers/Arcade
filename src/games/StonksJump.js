@@ -304,12 +304,50 @@ const StonksJump = ({ onExit }) => {
     if (!gameOver) setTimeout(() => { setIsPlaying(true); gameState.current.lastTime = performance.now(); }, 3000);
   }, [resetKey, gameOver]);
 
-  return (
-    <div ref={containerRef} className="game-wrapper" tabIndex="0" onClick={() => containerRef.current.focus()}>
-        <GameUI score={score} gameOver={gameOver} isPlaying={isPlaying} onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setResetKey(prev => prev + 1); }} onExit={onExit} gameId="doodle" />
-        <canvas ref={canvasRef} width={800} height={1200} style={{ width: '100%', maxWidth: '500px', height: 'auto' }} />
-    </div>
-  );
-};
+    return (
+        <div ref={containerRef} className="game-wrapper" tabIndex="0" onClick={() => containerRef.current.focus()} style={{
+            // NEW: Flex container to center the game perfectly
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+            height: '100vh', // Take full viewport height
+            background: '#0a0a0a', // Optional: Dark background for the empty sides
+            overflow: 'hidden'
+        }}>
+            {/* Game UI stays on top */}
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: 10 }}>
+                <GameUI 
+                    score={score} 
+                    gameOver={gameOver} 
+                    isPlaying={isPlaying} 
+                    onRestart={() => { setGameOver(false); setIsPlaying(false); setScore(0); setResetKey(prev => prev + 1); }} 
+                    onExit={onExit} 
+                    gameId="doodle" 
+                />
+            </div>
+
+            {/* CANVAS UPGRADE: 
+                1. maxHeight: '90vh' -> Ensures it fits on screen vertically without scrolling
+                2. aspectRatio: '2/3' -> Keeps the game from getting squished
+                3. width: 'auto' -> Lets height dictate the size
+                4. maxWidth: 'none' -> Removes the 500px limit!
+            */}
+            <canvas 
+                ref={canvasRef} 
+                width={800} 
+                height={1200} 
+                style={{ 
+                    height: '90vh',           // Scale to 90% of screen height
+                    width: 'auto',            // Auto width based on aspect ratio
+                    aspectRatio: '2/3',       // Lock the shape (800x1200)
+                    maxWidth: '100%',         // Prevent overflow on mobile
+                    boxShadow: '0 0 50px rgba(0,0,0,0.5)', // Nice glow/shadow
+                    borderRadius: '8px'
+                }} 
+            />
+        </div>
+    );
+    };
 
 export default StonksJump;
