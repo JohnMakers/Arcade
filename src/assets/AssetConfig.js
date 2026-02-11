@@ -13,7 +13,7 @@ export const ASSETS = {
   MATRIX_GLITCH: "assets/frogger_obstacle2.png", 
   GOLDEN_PEPE: "assets/frogger_tendie.png", 
   TENDIE_SHIELD: "assets/frogger_shield.png", 
-  TEXTURE_GRASS: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Matrix_code.svg/512px-Matrix_code.svg.png", 
+  TEXTURE_GRASS: "assets/frogger_grass.png", 
   TEXTURE_ROAD: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Asphalt_texture.jpg/640px-Asphalt_texture.jpg", 
   TEXTURE_WATER: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Blue_noise_2.png/640px-Blue_noise_2.png", 
 
@@ -23,9 +23,9 @@ export const ASSETS = {
   PLATFORM_RED: "assets/stonks_red.png",
   PLATFORM_BLUE: "assets/stonks_blue.png",
   ROCKET: "assets/stonks_rocket.png",
-  STONKS_BG_1: "assets/stonks_first.png", // 0 - 10k
-  STONKS_BG_2: "assets/stonks_second.png", // 10k - 100k 
-  STONKS_BG_3: "assets/stonks_third.png", // 100k+ 
+  STONKS_BG_1: "assets/stonks_first2.png", // 0 - 10k
+  STONKS_BG_2: "assets/stonks_second2.png", // 10k - 100k 
+  STONKS_BG_3: "assets/stonks_third2.png", // 100k+ 
 
   // --- CHAD RUN ---
   CHAD_HERO: "assets/chad_hero.png", // Using classic Wojak as placeholder for Chad
