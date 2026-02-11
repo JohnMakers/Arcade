@@ -1,21 +1,21 @@
 // Centralized Asset Management
 export const ASSETS = {
   // --- FLAPPY DOGE ---
-  DOGE_HERO: "assets/flappy_character.png",
+  DOGE_HERO: "assets/flappy_character2.png",
   RED_CANDLE: "assets/flappy_obstacle.png", 
   FLAPPY_BACKGROUND: "assets/flappy_bg.png",
   
   // --- PEPE FROGGER ---
-  PEPE_HERO: "https://upload.wikimedia.org/wikipedia/en/8/87/Pepe_the_Frog.jpg",
+  PEPE_HERO: "assets/frogger_hero.png",
   NORMIE_CAR: "assets/frogger_obstacle.png", 
   TROLL_BUS: "https://upload.wikimedia.org/wikipedia/en/9/9a/Trollface_non-free.png", 
   NYAN_LOG: "https://upload.wikimedia.org/wikipedia/en/e/ed/Nyan_cat_250px_frame.PNG",
   MATRIX_GLITCH: "assets/frogger_obstacle2.png", 
   GOLDEN_PEPE: "assets/frogger_tendie.png", 
   TENDIE_SHIELD: "assets/frogger_shield.png", 
-  TEXTURE_GRASS: "assets/frogger_grass.png", 
+  TEXTURE_GRASS: "assets/frogger_grass2.png", 
   TEXTURE_ROAD: "assets/frogger_road.png", 
-  TEXTURE_WATER: "assets/frogger_water.png", 
+  TEXTURE_WATER: "assets/frogger_water2.png", 
 
   // --- STONKS JUMP ---
   STONKS_MAN: "assets/stonks_man.png",
