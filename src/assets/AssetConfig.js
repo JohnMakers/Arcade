@@ -23,9 +23,9 @@ export const ASSETS = {
   PLATFORM_RED: "assets/stonks_red.png",
   PLATFORM_BLUE: "assets/stonks_blue.png",
   ROCKET: "assets/stonks_rocket.png",
-  STONKS_BG_1: "assets/stonks_bg_1.png", // 0 - 10k
-  STONKS_BG_2: "assets/stonks_bg_2.png", // 10k - 100k 
-  STONKS_BG_3: "assets/stonks_bg_3.png", // 100k+ 
+  STONKS_BG_1: "assets/stonks_first.png", // 0 - 10k
+  STONKS_BG_2: "assets/stonks_second.png", // 10k - 100k 
+  STONKS_BG_3: "assets/stonks_third.png", // 100k+ 
 
   // --- CHAD RUN ---
   CHAD_HERO: "assets/chad_hero.png", // Using classic Wojak as placeholder for Chad
