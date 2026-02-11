@@ -14,8 +14,8 @@ export const ASSETS = {
   GOLDEN_PEPE: "assets/frogger_tendie.png", 
   TENDIE_SHIELD: "assets/frogger_shield.png", 
   TEXTURE_GRASS: "assets/frogger_grass.png", 
-  TEXTURE_ROAD: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Asphalt_texture.jpg/640px-Asphalt_texture.jpg", 
-  TEXTURE_WATER: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Blue_noise_2.png/640px-Blue_noise_2.png", 
+  TEXTURE_ROAD: "assets/frogger_road.png", 
+  TEXTURE_WATER: "assets/frogger_water.png", 
 
   // --- STONKS JUMP ---
   STONKS_MAN: "assets/stonks_man.png",

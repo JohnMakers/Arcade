@@ -20,7 +20,7 @@ const PepeFrogger = ({ onExit }) => {
 
   const engine = useRef({
     running: false,
-    isDead: false, // NEW GUARD FLAG
+    isDead: false,
     frames: 0,
     cameraY: 0,
     autoScrollY: 0,
@@ -37,6 +37,7 @@ const PepeFrogger = ({ onExit }) => {
     lastTime: 0
   });
 
+  // --- 1. LOAD ASSETS ---
   useEffect(() => {
     const load = (k, src) => {
         const img = new Image();
@@ -44,6 +45,8 @@ const PepeFrogger = ({ onExit }) => {
         img.crossOrigin = "Anonymous";
         img.onload = () => engine.current.sprites[k] = img;
     };
+    
+    // Sprites
     load('pepe', ASSETS.PEPE_HERO);
     load('car', ASSETS.NORMIE_CAR);
     load('bus', ASSETS.TROLL_BUS);
@@ -51,15 +54,18 @@ const PepeFrogger = ({ onExit }) => {
     load('glitch', ASSETS.MATRIX_GLITCH);
     load('gold', ASSETS.GOLDEN_PEPE);
     load('shield', ASSETS.TENDIE_SHIELD);
+
+    // Textures (These were missing!)
+    load('grass', ASSETS.TEXTURE_GRASS);
+    load('road', ASSETS.TEXTURE_ROAD);
+    load('water', ASSETS.TEXTURE_WATER);
   }, []);
 
   useEffect(() => {
     if(containerRef.current) containerRef.current.focus();
 
     const handleInput = (e) => {
-        // IGNORE INPUT IF DEAD
         if (engine.current.isDead) return;
-
         if (e.target && (e.target.closest('button') || e.target.closest('.interactive'))) return;
 
         if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," ","w","a","s","d"].includes(e.key)) {
@@ -70,9 +76,6 @@ const PepeFrogger = ({ onExit }) => {
         const now = performance.now();
 
         if (!state.running && !gameOver) {
-            // Wait for 3s timer via useEffect below, don't start manually on keypress anymore
-            // OR if you want keypress to skip timer, keep this, but user asked for 3s start.
-            // We will let the timer handle the start to match GameUI countdown.
             return; 
         }
 
@@ -202,7 +205,7 @@ const PepeFrogger = ({ onExit }) => {
 
     const resetGame = () => {
         engine.current.running = false;
-        engine.current.isDead = false; // RESET FLAG
+        engine.current.isDead = false;
         engine.current.hero = { gridX: 4, gridY: 13, x: 160, y: 520, targetX: 160, targetY: 520, isMoving: false };
         const startCam = (13 * GRID_SIZE) - 400;
         engine.current.cameraY = startCam;
@@ -227,7 +230,6 @@ const PepeFrogger = ({ onExit }) => {
         const w = canvas.width;
         const h = canvas.height;
 
-        // STOP LOGIC IF DEAD
         if (state.running && !state.isDead && !gameOver) {
             state.frames++;
             if (state.invulnerable > 0) { state.invulnerable -= 1 * dt; }
@@ -288,14 +290,42 @@ const PepeFrogger = ({ onExit }) => {
             if (state.hero.y > state.cameraY + h + GRID_SIZE) hitObstacle();
         }
 
+        // --- RENDER START ---
         ctx.fillStyle = "#111"; ctx.fillRect(0,0,w,h);
         ctx.save(); ctx.translate(0, -state.cameraY);
 
         state.lanes.forEach(lane => {
             const y = lane.gridY * GRID_SIZE;
-            let color = lane.type === 'grass' ? (lane.biome === 'matrix' ? '#003300' : '#2e7d32') : (lane.type === 'water' ? '#1565c0' : '#212121');
-            ctx.fillStyle = color; ctx.fillRect(0, y, w, GRID_SIZE);
-            if (lane.type === 'road') { ctx.fillStyle = '#666'; ctx.fillRect(0, y, w, 2); ctx.fillRect(0, y+38, w, 2); }
+            
+            // --- 2. RENDER TEXTURES LOGIC ---
+            let drawn = false;
+            // Determine which texture to use based on lane type
+            const texName = lane.type === 'grass' ? 'grass' : (lane.type === 'road' ? 'road' : 'water');
+            const texImg = engine.current.sprites[texName];
+
+            // If we have the image, draw it. 
+            // NOTE: Matrix biome forces green background color in original, 
+            // let's keep that matrix feel if biome is matrix, or use texture?
+            // User requested textures, so let's use textures unless it's matrix specific.
+            if (texImg && lane.biome !== 'matrix') { 
+                 ctx.drawImage(texImg, 0, y, w, GRID_SIZE);
+                 drawn = true;
+            }
+
+            if (!drawn) {
+                // Fallback to original color logic
+                let color = lane.type === 'grass' ? (lane.biome === 'matrix' ? '#003300' : '#2e7d32') : (lane.type === 'water' ? '#1565c0' : '#212121');
+                ctx.fillStyle = color; ctx.fillRect(0, y, w, GRID_SIZE);
+            }
+
+            // Keep road boundaries/markings on top of texture for visibility
+            if (lane.type === 'road') { 
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; 
+                ctx.fillRect(0, y, w, 2); 
+                ctx.fillRect(0, y+38, w, 2); 
+            }
+            // --- END TEXTURE LOGIC ---
+
             lane.elements.forEach(el => {
                 let sKey = 'car';
                 if (el.type === 'log') sKey = 'log'; if (el.type === 'glitch') sKey = 'glitch';
@@ -334,7 +364,6 @@ const PepeFrogger = ({ onExit }) => {
     };
 
     const hitObstacle = async () => {
-        // --- GUARD: PREVENT DOUBLE DEATH / INPUT AFTER DEATH ---
         if (engine.current.isDead) return;
 
         if (engine.current.invulnerable > 0) return;
@@ -346,11 +375,9 @@ const PepeFrogger = ({ onExit }) => {
             return;
         }
 
-        // 1. FREEZE GAME LOGIC IMMEDIATELY
         engine.current.running = false; 
         engine.current.isDead = true; 
         
-        // 2. SAVE SCORE
         if(username) {
             await supabase.from('leaderboards').insert([{
                 game_id: 'frogger', 
@@ -359,8 +386,6 @@ const PepeFrogger = ({ onExit }) => {
                 address: address
             }]);
         }
-        
-        // 3. SHOW UI
         setGameOver(true);
     };
 
