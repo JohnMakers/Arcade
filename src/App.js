@@ -5,6 +5,7 @@ import FlappyDoge from './games/FlappyDoge';
 import PepeFrogger from './games/PepeFrogger';
 import StonksJump from './games/StonksJump';
 import ChadRun from './games/ChadRun';
+import TendiesMan from './games/TendiesMan'; 
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
