@@ -15,6 +15,7 @@ function App() {
       case 'frogger': return <PepeFrogger onExit={() => setActiveGame(null)} />;
       case 'doodle': return <StonksJump onExit={() => setActiveGame(null)} />;
       case 'chadrun': return <ChadRun onExit={() => setActiveGame(null)} />;
+      case 'tendies': return <TendiesMan onExit={() => setActiveGame(null)} />;
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };
