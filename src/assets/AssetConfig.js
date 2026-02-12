@@ -32,6 +32,14 @@ export const ASSETS = {
   OBSTACLE_SOYJAK: "assets/chad_obstacle.png", // Using Cringe Target as placeholder
   OBSTACLE_BIRD: "assets/chad_air.png", // Placeholder flyer
   CHAD_BG: "assets/chad_bg.png", // Placeholder background
+
+// --- TENDIES MAN  ---
+  TM_PEPE: "assets/tm_hero.png",       // Lumberjack Pepe
+  TM_TENDIE: "assets/tm_tree.png",   // The log/tendie segment
+  TM_BONE: "assets/tm_bone.png",       // The branch/obstacle
+  TM_BG: "assets/tm_bg.png",           // Background
+  TM_TOMB: "assets/tm_tomb.png",       // Game Over gravestone
+
 };
 export const SOUNDS = {
   // Placeholder sound logic would go here
