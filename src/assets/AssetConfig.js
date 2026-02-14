@@ -49,10 +49,10 @@ export const ASSETS = {
   // Backgrounds
   STACK_BG_START: "assets/stack_bg1.png", // Score 0-50
   STACK_BG_SPACE: "assets/stack_bg2.png", // Score 51+
-  STACK_BLOCK_1: "assets/stack1.png", 
-  STACK_BLOCK_2: "assets/stack2.png",
-  STACK_BLOCK_3: "assets/stack3.png", 
-  STACK_BLOCK_4: "assets/stack4.png", // 
+  STACK_BLOCK_1: "assets/stack_1.png", 
+  STACK_BLOCK_2: "assets/stack_2.png",
+  STACK_BLOCK_3: "assets/stack_3.png", 
+  STACK_BLOCK_4: "assets/stack_4.png", // 
 };
 
 export const SOUNDS = {
