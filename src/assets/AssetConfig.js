@@ -28,24 +28,33 @@ export const ASSETS = {
   STONKS_BG_3: "assets/stonks_third2.png", // 100k+ 
 
   // --- CHAD RUN ---
-  CHAD_HERO: "assets/chad_hero.png", // Using classic Wojak as placeholder for Chad
-  OBSTACLE_SOYJAK: "assets/chad_obstacle.png", // Using Cringe Target as placeholder
-  OBSTACLE_BIRD: "assets/chad_air.png", // Placeholder flyer
-  CHAD_BG: "assets/chad_bg.png", // Placeholder background
+  CHAD_HERO: "assets/chad_hero.png", 
+  OBSTACLE_SOYJAK: "assets/chad_obstacle.png", 
+  OBSTACLE_BIRD: "assets/chad_air.png", 
+  CHAD_BG: "assets/chad_bg.png", 
 
-// --- TENDIES MAN  ---
-  TM_PEPE: "assets/tm_hero.png",       // Lumberjack Pepe
-  TM_TENDIE: "assets/tm_tree.png",   // The log/tendie segment
-  TM_BONE: "assets/tm_bone.png",       // The branch/obstacle
-  TM_BG: "assets/tm_bg.png",           // Background
-  TM_TOMB: "assets/tm_tomb.png",       // Game Over gravestone
+  // --- TENDIES MAN  ---
+  TM_PEPE: "assets/tm_hero.png",       
+  TM_TENDIE: "assets/tm_tree.png",   
+  TM_BONE: "assets/tm_bone.png",       
+  TM_BG: "assets/tm_bg.png",           
+  TM_TOMB: "assets/tm_tomb.png",       
   TM_PEPE_STRIKE: "assets/tm_hero2.png",
-  TM_BG_DAY: "assets/tm_bg1.png",         // Default Day
-  TM_BG_NIGHT: "assets/tm_bg2.png", // Score > 100
-  TM_GRASS_1: "assets/tm_grass1.png",    // Day Grass
+  TM_BG_DAY: "assets/tm_bg1.png",         
+  TM_BG_NIGHT: "assets/tm_bg2.png", 
+  TM_GRASS_1: "assets/tm_grass1.png",    
   TM_GRASS_2: "assets/tm_grass2.png",
 
+  // --- PEPE STACK (NEW) ---
+  // Backgrounds
+  STACK_BG_START: "assets/stonks_first2.png", // Score 0-50
+  STACK_BG_SPACE: "assets/stonks_third2.png", // Score 51+
+  STACK_BLOCK_1: "assets/stonks_green.png", 
+  STACK_BLOCK_2: "assets/stonks_blue.png",
+  STACK_BLOCK_3: "assets/stonks_red.png", 
+  STACK_BLOCK_4: "assets/stonks_green.png", // 
 };
+
 export const SOUNDS = {
-  // Placeholder sound logic would go here
+  // Placeholder sound logic 
 };

@@ -17,7 +17,7 @@ const ArcadeShell = ({ onSelectGame }) => {
             gap: 20, 
             marginBottom: 30, 
             width: '100%',
-            alignItems: 'center', /* CRITICAL FOR CENTERING INPUTS */
+            alignItems: 'center',
             justifyContent: 'center'
         }}>
             {/* NAME INPUT */}
@@ -93,6 +93,7 @@ const ArcadeShell = ({ onSelectGame }) => {
         <button className="btn-meme" onClick={() => onSelectGame('doodle')}>STONKS JUMP</button>
         <button className="btn-meme" onClick={() => onSelectGame('chadrun')}>CHAD RUN</button>
         <button className="btn-meme" onClick={() => onSelectGame('tendies')}>TENDIES MAN</button>
+        <button className="btn-meme" onClick={() => onSelectGame('stack')}>PEPE STACK</button>
       </div>
     </div>
   );

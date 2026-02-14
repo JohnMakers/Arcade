@@ -6,6 +6,7 @@ import PepeFrogger from './games/PepeFrogger';
 import StonksJump from './games/StonksJump';
 import ChadRun from './games/ChadRun';
 import TendiesMan from './games/TendiesMan'; 
+import PepeStack from './games/PepeStack'; 
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
@@ -17,6 +18,7 @@ function App() {
       case 'doodle': return <StonksJump onExit={() => setActiveGame(null)} />;
       case 'chadrun': return <ChadRun onExit={() => setActiveGame(null)} />;
       case 'tendies': return <TendiesMan onExit={() => setActiveGame(null)} />;
+      case 'stack': return <PepeStack onExit={() => setActiveGame(null)} />; 
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };
