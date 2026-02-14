@@ -16,24 +16,24 @@ const TendiesMan = ({ onExit }) => {
   const [resetKey, setResetKey] = useState(0);
 
   // Game Constants
-  const TOWER_X = 200; // Center of canvas (400 width)
+  const TOWER_X = 200; 
   const SEGMENT_HEIGHT = 80;
   const SEGMENT_WIDTH = 100;
-  const PLAYER_OFFSET_X = 90; // How far from center player stands
+  const PLAYER_OFFSET_X = 90; 
   const TIME_MAX = 100;
   
-  // Engine State (Ref to avoid re-renders during loop)
+  // Engine State
   const engine = useRef({
     running: false,
     score: 0,
     timeLeft: TIME_MAX,
-    decayRate: 0.2, // Energy loss per frame
-    playerSide: 'left', // 'left' or 'right'
-    isChopping: false, // Animation state
+    decayRate: 0.2, 
+    playerSide: 'left', 
+    isChopping: false, 
     chopFrame: 0,
     sprites: {},
-    tower: [], // Array of { hasBone: bool, boneSide: 'left'/'right' }
-    particles: [], // For chop effects
+    tower: [], 
+    particles: [], 
     lastTime: 0
   });
 
@@ -41,25 +41,25 @@ const TendiesMan = ({ onExit }) => {
   useEffect(() => {
     const load = (k, src) => {
       const img = new Image();
-      img.src = src;
+      img.src = src || 'https://via.placeholder.com/100'; 
       engine.current.sprites[k] = img;
     };
-    load('hero', ASSETS.TM_PEPE || 'https://via.placeholder.com/100/00FF00?text=Pepe');
-    load('tendie', ASSETS.TM_TENDIE || 'https://via.placeholder.com/100/D2691E?text=Tendie');
-    load('bone', ASSETS.TM_BONE || 'https://via.placeholder.com/80/FFFFFF?text=Bone');
-    load('bg', ASSETS.TM_BG || 'https://via.placeholder.com/400/87CEEB?text=Background');
-    load('tomb', ASSETS.TM_TOMB || 'https://via.placeholder.com/100/555555?text=RIP');
+    
+    // Using simple placeholders if ASSETS constants are undefined
+    load('hero', ASSETS.TM_PEPE);
+    load('tendie', ASSETS.TM_TENDIE);
+    load('bone', ASSETS.TM_BONE);
+    load('bg', ASSETS.TM_BG);
+    load('tomb', ASSETS.TM_TOMB);
   }, []);
 
   // Input Handling
   useEffect(() => {
     const handleInput = (e) => {
-      // Ignore inputs if UI overlay is interactive
       if (e.target.closest('button') || e.target.closest('.interactive')) return;
 
       const state = engine.current;
 
-      // Restart logic handled by UI, here we only care about active gameplay inputs
       if (state.running && !gameOver) {
         let inputSide = null;
 
@@ -67,7 +67,6 @@ const TendiesMan = ({ onExit }) => {
           if (e.code === 'ArrowLeft') inputSide = 'left';
           if (e.code === 'ArrowRight') inputSide = 'right';
         } else if (e.type === 'touchstart' || e.type === 'mousedown') {
-          // Determine side based on click X relative to window/canvas
           const rect = containerRef.current.getBoundingClientRect();
           const clientX = e.touches ? e.touches[0].clientX : e.clientX;
           const x = clientX - rect.left;
@@ -75,7 +74,7 @@ const TendiesMan = ({ onExit }) => {
         }
 
         if (inputSide) {
-          e.preventDefault(); // Stop scrolling/etc
+          if(e.cancelable) e.preventDefault();
           chop(inputSide);
         }
       }
@@ -95,91 +94,70 @@ const TendiesMan = ({ onExit }) => {
         wrapper.removeEventListener('touchstart', handleInput);
       }
     };
-  }, [gameOver, isPlaying]);
+  }, [gameOver, isPlaying]); // Re-bind when game state changes
 
-  // Core Game Mechanics
+  // --- CORE MECHANICS ---
+
+  // 1. Initialization (Separate from Loop!)
   const initGame = () => {
     const state = engine.current;
     state.running = true;
     state.score = 0;
     state.timeLeft = TIME_MAX;
-    state.decayRate = 0.3; // Starting difficulty
+    state.decayRate = 0.3; 
     state.playerSide = 'left';
     state.isChopping = false;
     state.tower = [];
     state.particles = [];
     state.lastTime = performance.now();
 
-    // Generate initial tower (no obstacles at very bottom)
     for (let i = 0; i < 10; i++) {
-      addTowerSegment(i < 3); // First 3 are safe
+      addTowerSegment(i < 3); 
     }
   };
 
+  // 2. Tower Logic
   const addTowerSegment = (forceSafe = false) => {
     const state = engine.current;
-    
-    // Logic for obstacles: 
-    // 1. Random chance
-    // 2. Can't have bone immediately after another to avoid impossible patterns (optional, but good for flow)
-    // 3. 50/50 side if bone exists
-    
     let hasBone = false;
     let boneSide = null;
 
     if (!forceSafe) {
-      // 50% chance of a bone normally
       if (Math.random() > 0.5) {
         hasBone = true;
         boneSide = Math.random() > 0.5 ? 'left' : 'right';
       }
     }
-
     state.tower.push({ hasBone, boneSide });
   };
 
+  // 3. Gameplay Logic
   const chop = (side) => {
     const state = engine.current;
-    
-    // 1. Move Player
     state.playerSide = side;
     state.isChopping = true;
-    state.chopFrame = 5; // Animation duration frames
+    state.chopFrame = 5; 
 
-    // 2. Process Tower
-    // Remove bottom segment
     const removedSegment = state.tower.shift();
-    
-    // Add new segment at top
     addTowerSegment();
 
-    // 3. Check Death (Collision with the NEW bottom segment)
-    // In "Timberman" logic, if the block falling down (now at index 0) has a branch on your side, you die.
     const nextSegment = state.tower[0];
-    
     if (nextSegment.hasBone && nextSegment.boneSide === state.playerSide) {
       handleDeath();
     } else {
-      // 4. Success: Score & Time
       state.score += 1;
       setScore(state.score);
+      state.timeLeft = Math.min(TIME_MAX, state.timeLeft + 5); 
       
-      // Add time (capped at MAX)
-      state.timeLeft = Math.min(TIME_MAX, state.timeLeft + 5); // +5 energy per chop
-      
-      // 5. Difficulty Scaling
-      // Increase decay rate every 20 points
       if (state.score % 20 === 0) {
         state.decayRate += 0.05;
       }
 
-      // Add particle effect (visual only)
       state.particles.push({
         x: TOWER_X,
         y: 450,
-        vx: side === 'left' ? 10 : -10, // Fly opposite way
+        vx: side === 'left' ? 10 : -10,
         vy: -5,
-        rotation: 0,
         life: 20
       });
     }
@@ -198,145 +176,123 @@ const TendiesMan = ({ onExit }) => {
     }
   };
 
-  // Game Loop
+  // --- RENDER LOOP ---
+  
+  // Effect 1: Initialize Game State ONLY on Reset
+  useEffect(() => {
+      initGame();
+      // We pause immediately so the user has to wait for the timer
+      engine.current.running = false; 
+  }, [resetKey]);
+
+  // Effect 2: The Loop
   useEffect(() => {
     const canvas = canvasRef.current;
+    if(!canvas) return;
     const ctx = canvas.getContext('2d');
     let animationId;
 
-    // Reset Engine Data
-    initGame();
-    // But pause running until UI "Start" is clicked (handled by isPlaying state wrapper technically, but we use internal flag)
-    engine.current.running = false; 
+    // Helper: Safely draw sprite or fallback color (Prevents Crashes!)
+    const drawSafe = (img, x, y, w, h, fallbackColor, scaleX = 1) => {
+        if (img && img.complete && img.naturalWidth > 0) {
+            if (scaleX === 1) {
+                ctx.drawImage(img, x, y, w, h);
+            } else {
+                ctx.save();
+                // Translate to center of image to flip correctly
+                ctx.translate(x + (w/2), y);
+                ctx.scale(scaleX, 1);
+                ctx.drawImage(img, -w/2, 0, w, h);
+                ctx.restore();
+            }
+        } else {
+            ctx.fillStyle = fallbackColor;
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            ctx.strokeRect(x, y, w, h);
+        }
+    };
 
     const loop = (time) => {
       const state = engine.current;
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
-      // Clear Screen
+      // 1. Clear Screen
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw Background
-      if (state.sprites.bg && state.sprites.bg.complete) {
+      // 2. Draw Background
+      if (state.sprites.bg && state.sprites.bg.complete && state.sprites.bg.naturalWidth > 0) {
         ctx.drawImage(state.sprites.bg, 0, 0, canvas.width, canvas.height);
       } else {
-        ctx.fillStyle = '#87CEEB';
+        ctx.fillStyle = '#87CEEB'; // Sky Blue Fallback
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        // Floor
-        ctx.fillStyle = '#228B22';
+        ctx.fillStyle = '#228B22'; // Grass
         ctx.fillRect(0, 500, canvas.width, 100);
       }
 
-      // Update Logic if Running
+      // 3. Logic Update
       if (state.running && isPlaying) {
-        // Time Decay
         state.timeLeft -= state.decayRate * dt;
-        if (state.timeLeft <= 0) {
-          handleDeath();
-        }
+        if (state.timeLeft <= 0) handleDeath();
         if (state.chopFrame > 0) state.chopFrame--;
       }
 
-      // --- DRAW TOWER ---
-      // We draw from bottom (y=420) upwards
+      // 4. Draw Tower
       const BASE_Y = 420;
-      
       state.tower.forEach((seg, index) => {
         const yPos = BASE_Y - (index * SEGMENT_HEIGHT);
         
-        // Draw Tendie Segment
-        if (state.sprites.tendie && state.sprites.tendie.complete) {
-            ctx.drawImage(state.sprites.tendie, TOWER_X - (SEGMENT_WIDTH/2), yPos, SEGMENT_WIDTH, SEGMENT_HEIGHT);
-        } else {
-            ctx.fillStyle = '#D2691E'; // Brown
-            ctx.fillRect(TOWER_X - (SEGMENT_WIDTH/2), yPos, SEGMENT_WIDTH, SEGMENT_HEIGHT);
-            ctx.strokeStyle = '#8B4513';
-            ctx.strokeRect(TOWER_X - (SEGMENT_WIDTH/2), yPos, SEGMENT_WIDTH, SEGMENT_HEIGHT);
-        }
+        // Draw Tendie
+        drawSafe(state.sprites.tendie, TOWER_X - (SEGMENT_WIDTH/2), yPos, SEGMENT_WIDTH, SEGMENT_HEIGHT, '#D2691E');
 
-        // Draw Bone (Obstacle)
+        // Draw Bone
         if (seg.hasBone) {
+          const boneW = 80;
           const boneX = seg.boneSide === 'left' 
-            ? TOWER_X - (SEGMENT_WIDTH/2) - 80 
+            ? TOWER_X - (SEGMENT_WIDTH/2) - boneW 
             : TOWER_X + (SEGMENT_WIDTH/2);
-          
-          if (state.sprites.bone && state.sprites.bone.complete) {
-            // Flip bone if on left? (Assumes image points right usually)
-            ctx.save();
-            if (seg.boneSide === 'left') {
-                ctx.translate(boneX + 80, yPos);
-                ctx.scale(-1, 1);
-                ctx.drawImage(state.sprites.bone, 0, 0, 80, SEGMENT_HEIGHT);
-            } else {
-                ctx.drawImage(state.sprites.bone, boneX, yPos, 80, SEGMENT_HEIGHT);
-            }
-            ctx.restore();
-          } else {
-            ctx.fillStyle = '#FFF';
-            ctx.fillRect(boneX, yPos + 20, 80, 20);
-          }
+            
+          // Flip bone if on left (assuming asset points right)
+          const scale = seg.boneSide === 'left' ? -1 : 1;
+          drawSafe(state.sprites.bone, boneX, yPos, boneW, SEGMENT_HEIGHT, '#FFFFFF', scale);
         }
       });
 
-      // --- DRAW PLAYER ---
+      // 5. Draw Player
       if (!gameOver) {
         const playerX = state.playerSide === 'left' 
           ? TOWER_X - PLAYER_OFFSET_X - 60 
           : TOWER_X + PLAYER_OFFSET_X;
         
-        const playerY = 420; // Standing on ground
-        
-        // Chop Animation Offset
         const chopAnim = state.chopFrame > 0 ? (state.playerSide === 'left' ? 20 : -20) : 0;
-
-        if (state.sprites.hero && state.sprites.hero.complete) {
-          ctx.save();
-          if (state.playerSide === 'left') {
-            // Standard image
-            ctx.drawImage(state.sprites.hero, playerX + chopAnim, playerY, 60, 80);
-          } else {
-            // Flip for right side
-            ctx.translate(playerX + 60 + chopAnim, playerY);
-            ctx.scale(-1, 1);
-            ctx.drawImage(state.sprites.hero, 0, 0, 60, 80);
-          }
-          ctx.restore();
-        } else {
-          ctx.fillStyle = '#00FF00';
-          ctx.fillRect(playerX + chopAnim, playerY, 60, 80);
-        }
+        const scale = state.playerSide === 'left' ? 1 : -1;
+        
+        drawSafe(state.sprites.hero, playerX + chopAnim, 420, 60, 80, '#00FF00', scale);
       } else {
-        // Draw Tombstone on death
+        // Draw Tombstone
         const tombX = state.playerSide === 'left' ? TOWER_X - 120 : TOWER_X + 60;
-        if (state.sprites.tomb && state.sprites.tomb.complete) {
-            ctx.drawImage(state.sprites.tomb, tombX, 440, 60, 60);
-        }
+        drawSafe(state.sprites.tomb, tombX, 440, 60, 60, '#555');
       }
 
-      // --- DRAW PARTICLES ---
-      state.particles.forEach((p, i) => {
+      // 6. Draw Particles
+      state.particles.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.5; // Gravity
+        p.vy += 0.5;
         p.life--;
-        
         ctx.fillStyle = '#D2691E';
-        ctx.fillRect(p.x, p.y, 30, 30);
+        ctx.fillRect(p.x, p.y, 10, 10);
       });
       state.particles = state.particles.filter(p => p.life > 0);
 
-      // --- DRAW UI (Time Bar) ---
-      // Background bar
+      // 7. Draw Time Bar
       ctx.fillStyle = '#333';
       ctx.fillRect(50, 50, 300, 20);
-      
-      // Fill bar (Red if low, Green if high)
-      const fillPct = state.timeLeft / TIME_MAX;
+      const fillPct = Math.max(0, state.timeLeft / TIME_MAX);
       ctx.fillStyle = fillPct < 0.3 ? '#FF0000' : '#00FF00';
       ctx.fillRect(52, 52, 296 * fillPct, 16);
-
-      // Label
+      
       ctx.fillStyle = '#FFF';
       ctx.font = 'bold 16px Arial';
       ctx.textAlign = 'center';
@@ -347,19 +303,18 @@ const TendiesMan = ({ onExit }) => {
 
     loop(performance.now());
     return () => cancelAnimationFrame(animationId);
-  }, [resetKey, isPlaying]); // Re-bind loop if resetKey changes
+  }, [resetKey, isPlaying, gameOver]); // Added gameOver to ensure proper state reflection
 
-  // Game Start Timer
+  // Start Timer
   useEffect(() => {
     if (!gameOver && !isPlaying) {
-      // Small delay before enabling input so user doesn't accidentally click immediately after restart
       const t = setTimeout(() => { 
           setIsPlaying(true); 
           engine.current.running = true; 
       }, 500); 
       return () => clearTimeout(t);
     }
-  }, [resetKey, gameOver]);
+  }, [resetKey, gameOver]); // Only restart timer on full reset or game over toggle
 
   return (
     <div ref={containerRef} className="game-wrapper" tabIndex="0" onClick={() => containerRef.current?.focus()}>
@@ -375,7 +330,7 @@ const TendiesMan = ({ onExit }) => {
         }} 
         onExit={onExit} 
         gameId="tendies"
-        instructions="Tap Left/Right or use Arrow Keys to Chop! Watch out for bones!"
+        instructions="Tap Left/Right or Arrows!"
       />
       <canvas ref={canvasRef} width={400} height={600} />
     </div>
