@@ -40,6 +40,10 @@ export const ASSETS = {
   TM_BG: "assets/tm_bg.png",           // Background
   TM_TOMB: "assets/tm_tomb.png",       // Game Over gravestone
   TM_PEPE_STRIKE: "assets/tm_hero2.png",
+  TM_BG_DAY: "assets/tm_bg1.png",         // Default Day
+  TM_BG_NIGHT: "assets/tm_bg2.png", // Score > 100
+  TM_GRASS_1: "assets/tm_grass1.png",    // Day Grass
+  TM_GRASS_2: "assets/tm_grass2.png",
 
 };
 export const SOUNDS = {

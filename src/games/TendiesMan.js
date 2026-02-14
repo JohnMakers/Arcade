@@ -46,10 +46,16 @@ const TendiesMan = ({ onExit }) => {
     };
     
     load('hero', ASSETS.TM_PEPE);
-    load('heroStrike', ASSETS.TM_PEPE_STRIKE); // <--- LOAD NEW SPRITE
+    load('heroStrike', ASSETS.TM_PEPE_STRIKE); 
     load('tendie', ASSETS.TM_TENDIE);
     load('bone', ASSETS.TM_BONE);
-    load('bg', ASSETS.TM_BG);
+    
+    // Backgrounds & Grass
+    load('bgDay', ASSETS.TM_BG_DAY);
+    load('bgNight', ASSETS.TM_BG_NIGHT);
+    load('grass1', ASSETS.TM_GRASS_1);
+    load('grass2', ASSETS.TM_GRASS_2);
+    
     load('tomb', ASSETS.TM_TOMB);
   }, []);
 
@@ -134,7 +140,9 @@ const TendiesMan = ({ onExit }) => {
     const state = engine.current;
     state.playerSide = side;
     state.isChopping = true;
-    state.chopFrame = 5; // Animation lasts 5 frames
+    
+    // INCREASED ANIMATION DURATION (15 frames = ~0.25s)
+    state.chopFrame = 15; 
 
     const removedSegment = state.tower.shift();
     addTowerSegment();
@@ -151,14 +159,13 @@ const TendiesMan = ({ onExit }) => {
         state.decayRate += 0.05;
       }
 
-      // BIGGER CHUNK PARTICLES
       state.particles.push({
         x: TOWER_X,
         y: 450,
-        vx: side === 'left' ? 12 : -12, // Slightly faster kick
+        vx: side === 'left' ? 12 : -12, 
         vy: -8,
         life: 25,
-        w: 40, // <--- BIG SIZE
+        w: 40, 
         h: 40
       });
     }
@@ -214,15 +221,34 @@ const TendiesMan = ({ onExit }) => {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw Background
-      if (state.sprites.bg && state.sprites.bg.complete && state.sprites.bg.naturalWidth > 0) {
-        ctx.drawImage(state.sprites.bg, 0, 0, canvas.width, canvas.height);
+      // --- 1. DYNAMIC BACKGROUND ---
+      const isNight = state.score >= 100;
+      const bgSprite = isNight ? state.sprites.bgNight : state.sprites.bgDay;
+      const grassSprite = isNight ? state.sprites.grass2 : state.sprites.grass1;
+      
+      // Draw Sky
+      if (bgSprite && bgSprite.complete && bgSprite.naturalWidth > 0) {
+        ctx.drawImage(bgSprite, 0, 0, canvas.width, canvas.height);
       } else {
-        ctx.fillStyle = '#87CEEB'; 
+        ctx.fillStyle = isNight ? '#000033' : '#87CEEB'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#228B22'; 
+      }
+
+      // Draw Grass (Bottom 100px)
+      if (grassSprite && grassSprite.complete && grassSprite.naturalWidth > 0) {
+        ctx.drawImage(grassSprite, 0, 500, canvas.width, 100);
+      } else {
+        ctx.fillStyle = isNight ? '#006400' : '#228B22'; 
         ctx.fillRect(0, 500, canvas.width, 100);
       }
+
+      // --- 2. THE BLACK LINE ---
+      ctx.beginPath();
+      ctx.moveTo(0, 500);
+      ctx.lineTo(canvas.width, 500);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#000000';
+      ctx.stroke();
 
       // Logic Update
       if (state.running && isPlaying) {
@@ -232,15 +258,14 @@ const TendiesMan = ({ onExit }) => {
       }
 
       // Draw Tower
-      const BASE_Y = 420;
+      const BASE_Y = 420; // Player Y
       state.tower.forEach((seg, index) => {
         const yPos = BASE_Y - (index * SEGMENT_HEIGHT);
         
-        // Draw Tendie (Log)
+        // Draw Tendie
         drawSafe(state.sprites.tendie, TOWER_X - (SEGMENT_WIDTH/2), yPos, SEGMENT_WIDTH, SEGMENT_HEIGHT, '#D2691E');
 
         // Draw Bone
-        // CRITICAL FIX: IF index === 0 (Bottom Log), DO NOT DRAW BONE
         if (seg.hasBone && index !== 0) {
           const boneW = 80;
           const boneX = seg.boneSide === 'left' 
@@ -259,13 +284,11 @@ const TendiesMan = ({ onExit }) => {
           : TOWER_X + PLAYER_OFFSET_X;
         
         const scale = state.playerSide === 'left' ? 1 : -1;
-        const isStriking = state.chopFrame > 0;
         
-        // NEW: Select Sprite based on Action
-        // If striking, use heroStrike. If idle, use hero.
+        // Use Strike Sprite if chopping
+        const isStriking = state.chopFrame > 0;
         const activeSprite = isStriking ? state.sprites.heroStrike : state.sprites.hero;
 
-        // Note: Strike sprite usually needs no X offset adjustment if it's same size
         drawSafe(activeSprite, playerX, 420, 60, 80, '#00FF00', scale);
       } else {
         const tombX = state.playerSide === 'left' ? TOWER_X - 120 : TOWER_X + 60;
@@ -278,8 +301,7 @@ const TendiesMan = ({ onExit }) => {
         p.y += p.vy;
         p.vy += 0.5;
         p.life--;
-        ctx.fillStyle = '#D2691E'; // Tendie Color
-        // Draw larger chunk
+        ctx.fillStyle = '#D2691E'; 
         ctx.fillRect(p.x, p.y, p.w, p.h);
         ctx.strokeStyle = '#654321';
         ctx.strokeRect(p.x, p.y, p.w, p.h);
