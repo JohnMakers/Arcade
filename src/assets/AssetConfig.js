@@ -47,12 +47,12 @@ export const ASSETS = {
 
   // --- PEPE STACK (NEW) ---
   // Backgrounds
-  STACK_BG_START: "assets/stonks_first2.png", // Score 0-50
-  STACK_BG_SPACE: "assets/stonks_third2.png", // Score 51+
-  STACK_BLOCK_1: "assets/stonks_green.png", 
-  STACK_BLOCK_2: "assets/stonks_blue.png",
-  STACK_BLOCK_3: "assets/stonks_red.png", 
-  STACK_BLOCK_4: "assets/stonks_green.png", // 
+  STACK_BG_START: "assets/stack_bg1.png", // Score 0-50
+  STACK_BG_SPACE: "assets/stack_bg2.png", // Score 51+
+  STACK_BLOCK_1: "assets/stack1.png", 
+  STACK_BLOCK_2: "assets/stack2.png",
+  STACK_BLOCK_3: "assets/stack3.png", 
+  STACK_BLOCK_4: "assets/stack4.png", // 
 };
 
 export const SOUNDS = {
