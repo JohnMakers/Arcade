@@ -17,22 +17,27 @@ const PepeStack = ({ onExit }) => {
   // --- CONFIGURATION ---
   const INITIAL_WIDTH = 200;
   const BLOCK_HEIGHT = 40;
-  const INITIAL_SPEED = 5;
-  const SPEED_INCREMENT = 0.5; 
-  const MAX_SPEED = 25; 
+  const INITIAL_SPEED = 4; // Horizontal speed
+  const DROP_SPEED_ACCEL = 0.8; // Gravity
+  const MAX_SPEED = 20; 
   const CANVAS_WIDTH = 500;
   const CANVAS_HEIGHT = 800;
+  
+  // Visuals
+  const DROP_START_Y = 150; // Where the block slides (Screen Coordinates)
+  const STACK_TARGET_Y = 600; // Where we want the top of the stack to end up (Screen Coords)
 
   const gameState = useRef({
     blocks: [], 
-    current: null, 
+    current: null, // The active block
     cameraY: 0,
     targetCameraY: 0,
     direction: 1, 
     speed: INITIAL_SPEED,
-    mode: 'IDLE', 
+    mode: 'IDLE', // IDLE, HOVER, DROPPING, RUGPULL
     sprites: {},
-    particles: [], 
+    particles: [], // For slice debris
+    emojis: [], // For Rockets/Poops
     lastTime: 0
   });
 
@@ -45,17 +50,13 @@ const PepeStack = ({ onExit }) => {
       img.onload = () => { gameState.current.sprites[key] = img; };
     };
 
-    // Load Backgrounds
     loadSprite('bg_start', ASSETS.STACK_BG_START);
     loadSprite('bg_space', ASSETS.STACK_BG_SPACE);
-
-    // Load Block Variations
     loadSprite('block_1', ASSETS.STACK_BLOCK_1);
     loadSprite('block_2', ASSETS.STACK_BLOCK_2);
     loadSprite('block_3', ASSETS.STACK_BLOCK_3);
     loadSprite('block_4', ASSETS.STACK_BLOCK_4);
-
-    loadSprite('moon', ASSETS.ROCKET); 
+    loadSprite('moon', ASSETS.STONKS_ROCKET); 
   }, []);
 
   // Input Handling
@@ -63,7 +64,8 @@ const PepeStack = ({ onExit }) => {
     const handleInput = (e) => {
       if (e.target.closest('button') || e.target.closest('.interactive')) return;
       if (e.cancelable && e.type === 'touchstart') e.preventDefault();
-      placeBlock();
+      
+      triggerDrop();
     };
 
     const wrapper = containerRef.current;
@@ -71,7 +73,7 @@ const PepeStack = ({ onExit }) => {
       wrapper.addEventListener('mousedown', handleInput);
       wrapper.addEventListener('touchstart', handleInput, { passive: false });
       window.addEventListener('keydown', (e) => {
-        if(e.code === 'Space') placeBlock();
+        if(e.code === 'Space') triggerDrop();
       });
     }
 
@@ -90,20 +92,22 @@ const PepeStack = ({ onExit }) => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    gameState.current.mode = 'PLAYING';
+    // Init Game State
+    gameState.current.mode = 'HOVER';
     gameState.current.speed = INITIAL_SPEED;
     gameState.current.blocks = [];
+    gameState.current.emojis = [];
+    gameState.current.particles = [];
     gameState.current.score = 0;
     gameState.current.cameraY = 0;
-    gameState.current.targetCameraY = 0;
     
-    // Base Block
+    // Initial Base Block
     gameState.current.blocks.push({
       x: (CANVAS_WIDTH - INITIAL_WIDTH) / 2,
-      y: CANVAS_HEIGHT - 100,
+      y: CANVAS_HEIGHT - 100, // Bottom of world
       w: INITIAL_WIDTH,
       h: BLOCK_HEIGHT,
-      texture: 'block_1' // Default base
+      texture: 'block_1'
     });
 
     spawnNextBlock();
@@ -120,97 +124,133 @@ const PepeStack = ({ onExit }) => {
       ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      // --- BACKGROUND LOGIC ---
+      // --- 1. BACKGROUND ---
       let bgKey = 'bg_start';
       if (state.score > 50) bgKey = 'bg_space';
-
       if (state.sprites[bgKey]) {
          const bgH = CANVAS_HEIGHT;
-         // Parallax effect
+         // Background moves slower than camera for parallax
          const parallaxY = (state.cameraY * 0.5) % bgH;
-         
-         // Draw two copies for seamless loop
          ctx.drawImage(state.sprites[bgKey], 0, parallaxY, CANVAS_WIDTH, bgH);
          ctx.drawImage(state.sprites[bgKey], 0, parallaxY - bgH, CANVAS_WIDTH, bgH);
       }
 
       ctx.save();
-      // Smooth Camera
+      
+      // --- 2. CAMERA LERP ---
+      // We want the top block to eventually sit at STACK_TARGET_Y (Screen Coords)
+      // World Y of top block = blocks[last].y
+      // Screen Y = World Y + cameraY
+      // Target Camera Y = STACK_TARGET_Y - blocks[last].y
+      if (state.blocks.length > 0) {
+          const topBlockY = state.blocks[state.blocks.length-1].y;
+          const idealCameraY = STACK_TARGET_Y - topBlockY;
+          // Only move camera "up" (increasing Y value in this coord system)
+          if (idealCameraY > state.targetCameraY) {
+              state.targetCameraY = idealCameraY;
+          }
+      }
+      
       state.cameraY += (state.targetCameraY - state.cameraY) * 0.1;
       ctx.translate(0, state.cameraY);
 
-      // --- LOGIC ---
-      if (state.mode === 'PLAYING') {
-         if (state.current) {
-             state.current.x += state.speed * state.direction * dt;
-             
-             if (state.current.x <= 0) {
-                 state.current.x = 0;
-                 state.direction = 1;
-             } else if (state.current.x + state.current.w >= CANVAS_WIDTH) {
-                 state.current.x = CANVAS_WIDTH - state.current.w;
-                 state.direction = -1;
-             }
+      // --- 3. PHYSICS & LOGIC ---
+      
+      // HOVER MODE: Block slides at top of screen
+      if (state.mode === 'HOVER' && state.current) {
+         // Keep current Y fixed relative to SCREEN, so it moves in World
+         // Screen Y = DROP_START_Y
+         // World Y = DROP_START_Y - state.cameraY
+         state.current.y = DROP_START_Y - state.cameraY;
+
+         state.current.x += state.speed * state.direction * dt;
+         if (state.current.x <= 0) {
+             state.current.x = 0;
+             state.direction = 1;
+         } else if (state.current.x + state.current.w >= CANVAS_WIDTH) {
+             state.current.x = CANVAS_WIDTH - state.current.w;
+             state.direction = -1;
          }
-      } else if (state.mode === 'RUGPULL') {
+      } 
+      
+      // DROPPING MODE: Block falls
+      else if (state.mode === 'DROPPING' && state.current) {
+          state.current.vy += DROP_SPEED_ACCEL * dt;
+          state.current.y += state.current.vy * dt;
+
+          // Check Collision with Top Block
+          const prev = state.blocks[state.blocks.length - 1];
+          
+          // Predicted position next frame (for tunneling prevention)
+          if (state.current.y + state.current.h >= prev.y) {
+              handleLanding(prev);
+          }
+      }
+
+      // RUGPULL MODE: Everything falls
+      else if (state.mode === 'RUGPULL') {
          state.blocks.forEach(b => {
              b.y += (b.vy || 0) * dt;
              b.vy = (b.vy || 0) + 0.5 * dt; 
              b.x += (b.vx || 0) * dt;
          });
-         
          if (state.current) {
-             state.current.y += 10 * dt;
+             state.current.y += 15 * dt; // Drop faster
          }
       }
 
-      // --- RENDER BLOCKS ---
-      [...state.blocks, state.current].forEach(b => {
-          if (!b) return;
-          
-          // Use specific texture if available, otherwise cycle based on y-position/score logic fallback
-          const sprite = state.sprites[b.texture] || state.sprites['block_1'];
+      // --- 4. RENDER ---
 
-          if (sprite) {
-              ctx.drawImage(sprite, b.x, b.y, b.w, b.h);
-          } else {
-              ctx.fillStyle = '#00ff00';
-              ctx.fillRect(b.x, b.y, b.w, b.h);
-              ctx.strokeStyle = '#004400';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(b.x, b.y, b.w, b.h);
-          }
-          
-          // "Wick" detail
+      // Draw Stacked Blocks
+      state.blocks.forEach(b => drawBlock(ctx, state, b));
+
+      // Draw Current Block & Chain
+      if (state.current) {
+          // Draw Chain (Visual only)
+          const chainEndX = state.current.x + state.current.w/2;
+          const chainEndY = state.current.y;
+          const chainStartY = chainEndY - 1000; // Go way up
+
           ctx.beginPath();
-          ctx.moveTo(b.x + b.w/2, b.y);
-          ctx.lineTo(b.x + b.w/2, b.y - 10);
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 2;
+          ctx.moveTo(chainEndX, chainStartY);
+          ctx.lineTo(chainEndX, chainEndY);
+          ctx.strokeStyle = '#888';
+          ctx.lineWidth = 4;
+          ctx.setLineDash([10, 10]); // Industrial chain look
           ctx.stroke();
-      });
+          ctx.setLineDash([]);
 
-      // --- PARTICLES ---
-      state.particles.forEach((p, i) => {
+          drawBlock(ctx, state, state.current);
+      }
+
+      // Draw Particles (Debris)
+      state.particles.forEach((p) => {
           p.x += p.vx * dt;
           p.y += p.vy * dt;
           p.vy += 0.5 * dt;
           p.life -= dt;
-          
           ctx.fillStyle = `rgba(0, 255, 0, ${p.life / 30})`;
           ctx.fillRect(p.x, p.y, p.w, p.h);
       });
       state.particles = state.particles.filter(p => p.life > 0);
 
-      // --- MILESTONES ---
-      if (state.score > 0 && state.score % 10 === 0 && state.mode === 'PLAYING') {
-          ctx.fillStyle = 'yellow';
-          ctx.font = '20px "Press Start 2P"';
-          ctx.fillText("MOON SOON 🚀", CANVAS_WIDTH/2 - 100, state.blocks[state.blocks.length-1].y - 50);
-      }
+      // Draw Emojis (Rockets/Poop)
+      state.emojis.forEach((e) => {
+          e.x += e.vx * dt;
+          e.y += e.vy * dt;
+          e.life -= dt;
+          e.alpha -= 0.01;
+          
+          ctx.globalAlpha = Math.max(0, e.alpha);
+          ctx.font = `${e.size}px serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(e.char, e.x, e.y);
+          ctx.globalAlpha = 1.0;
+      });
+      state.emojis = state.emojis.filter(e => e.life > 0);
 
       ctx.restore();
-
       animationId = requestAnimationFrame(loop);
     };
 
@@ -218,61 +258,110 @@ const PepeStack = ({ onExit }) => {
     return () => cancelAnimationFrame(animationId);
   }, [resetKey]);
 
-  // Game Actions
+  // --- HELPERS ---
+
+  const drawBlock = (ctx, state, b) => {
+      const sprite = state.sprites[b.texture] || state.sprites['block_1'];
+      if (sprite) {
+          ctx.drawImage(sprite, b.x, b.y, b.w, b.h);
+      } else {
+          ctx.fillStyle = '#00ff00';
+          ctx.fillRect(b.x, b.y, b.w, b.h);
+      }
+      
+      // Wick
+      ctx.beginPath();
+      ctx.moveTo(b.x + b.w/2, b.y);
+      ctx.lineTo(b.x + b.w/2, b.y - 10);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+  };
+
   const spawnNextBlock = () => {
       const state = gameState.current;
       const prev = state.blocks[state.blocks.length - 1];
       
-      // Cycle through 4 block textures
-      // We use score + 1 because this is for the *next* block
       const textureIndex = (state.score % 4) + 1; 
-      const textureKey = `block_${textureIndex}`;
-
+      
       state.current = {
           x: 0, 
-          y: prev.y - BLOCK_HEIGHT,
-          w: prev.w,
+          // Y is managed by the loop in HOVER mode
+          y: 0, 
+          w: prev.w, // Inherit width
           h: BLOCK_HEIGHT,
-          texture: textureKey // Assign the texture
+          vx: 0,
+          vy: 0,
+          texture: `block_${textureIndex}`
       };
       
-      if (state.score % 2 === 0) {
+      // Randomize start side
+      if (Math.random() > 0.5) {
           state.current.x = -state.current.w;
           state.direction = 1; 
       } else {
           state.current.x = CANVAS_WIDTH;
           state.direction = -1; 
       }
+      
+      state.mode = 'HOVER';
   };
 
-  const placeBlock = async () => {
+  const triggerDrop = () => {
+      if (gameState.current.mode === 'HOVER') {
+          gameState.current.mode = 'DROPPING';
+          gameState.current.current.vy = 5; // Initial push
+      }
+  };
+
+  const handleLanding = async (prev) => {
       const state = gameState.current;
-      if (state.mode !== 'PLAYING' || !state.current) return;
-
       const curr = state.current;
-      const prev = state.blocks[state.blocks.length - 1];
 
+      // Calculate Overlap
       const dist = curr.x - prev.x;
-      const overlap = prev.w - Math.abs(dist);
+      const absDist = Math.abs(dist);
+      const overlap = prev.w - absDist;
 
       if (overlap > 0) {
+          // HIT!
           let newW = overlap;
-          let newX = curr.x;
+          let finalX = curr.x;
 
-          if (dist > 0) {
-              newX = curr.x; 
-              spawnDebris(curr.x + newW, curr.y, curr.w - newW, BLOCK_HEIGHT);
+          // SNAP LOGIC (Perfect Stack)
+          const isPerfect = absDist < 6; // 6px tolerance
+          
+          if (isPerfect) {
+              // Snap to exact position
+              finalX = prev.x;
+              newW = prev.w;
+              spawnEmojis(finalX + newW/2, curr.y, '🚀');
           } else {
-              newX = prev.x;
-              spawnDebris(curr.x, curr.y, prev.x - curr.x, BLOCK_HEIGHT);
+              // Standard Logic (Slice)
+              if (dist > 0) {
+                  // Overhang Right
+                  finalX = curr.x; 
+                  spawnDebris(curr.x + newW, curr.y, curr.w - newW, BLOCK_HEIGHT);
+              } else {
+                  // Overhang Left
+                  finalX = prev.x;
+                  spawnDebris(curr.x, curr.y, prev.x - curr.x, BLOCK_HEIGHT);
+              }
+
+              // Bad Stack Logic (Sloppy)
+              const percentLost = (curr.w - newW) / curr.w;
+              if (percentLost > 0.3) {
+                   spawnEmojis(finalX + newW/2, curr.y, '💩');
+              }
           }
 
+          // Place the block
           const placedBlock = {
-              x: dist > 0 ? curr.x : prev.x,
-              y: curr.y,
+              x: finalX,
+              y: prev.y - BLOCK_HEIGHT, // Stack physically on top
               w: newW,
               h: BLOCK_HEIGHT,
-              texture: curr.texture // Preserve the texture chosen during spawn
+              texture: curr.texture
           };
           
           state.blocks.push(placedBlock);
@@ -280,15 +369,16 @@ const PepeStack = ({ onExit }) => {
           state.score += 1;
           setScore(state.score);
 
+          // Speed Ramp
           if (state.score % 5 === 0) {
-              state.speed = Math.min(state.speed + SPEED_INCREMENT, MAX_SPEED);
+              state.speed = Math.min(state.speed + 0.5, MAX_SPEED);
           }
 
-          state.targetCameraY = (state.score * BLOCK_HEIGHT) - 200;
-          if (state.targetCameraY < 0) state.targetCameraY = 0;
-
           spawnNextBlock();
+
       } else {
+          // MISS (Rug Pull)
+          state.current.y = prev.y; // Visually sync for the slide off
           triggerRugPull();
       }
   };
@@ -302,13 +392,30 @@ const PepeStack = ({ onExit }) => {
       });
   };
 
+  const spawnEmojis = (x, y, char) => {
+      // Spawn a burst of emojis
+      for(let i=0; i<8; i++) {
+          gameState.current.emojis.push({
+              x: x,
+              y: y,
+              vx: (Math.random() - 0.5) * 15,
+              vy: -5 - Math.random() * 10, // Upward burst
+              char: char,
+              life: 100,
+              alpha: 1.0,
+              size: 20 + Math.random() * 20
+          });
+      }
+  };
+
   const triggerRugPull = async () => {
       const state = gameState.current;
       state.mode = 'RUGPULL';
       
+      // Random chaotic velocity for collapse
       state.blocks.forEach(b => {
-          b.vx = (Math.random() - 0.5) * 20;
-          b.vy = 5 + Math.random() * 10;
+          b.vx = (Math.random() - 0.5) * 15;
+          b.vy = 5 + Math.random() * 5;
       });
 
       if (username) {
@@ -352,8 +459,8 @@ const PepeStack = ({ onExit }) => {
                 pointerEvents: 'none', color: 'lime', textShadow: '2px 2px #000',
                 fontFamily: '"Press Start 2P"'
             }}>
-                TAP TO STACK<br/><br/>
-                DON'T GET RUGGED
+                TAP TO DROP<br/><br/>
+                TIME IT RIGHT!
             </div>
         )}
     </div>
