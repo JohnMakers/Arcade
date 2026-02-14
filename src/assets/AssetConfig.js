@@ -39,6 +39,7 @@ export const ASSETS = {
   TM_BONE: "assets/tm_bone.png",       // The branch/obstacle
   TM_BG: "assets/tm_bg.png",           // Background
   TM_TOMB: "assets/tm_tomb.png",       // Game Over gravestone
+  TM_PEPE_STRIKE: "assets/tm_hero2.png",
 
 };
 export const SOUNDS = {
