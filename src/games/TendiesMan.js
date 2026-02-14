@@ -246,7 +246,7 @@ const TendiesMan = ({ onExit }) => {
       ctx.beginPath();
       ctx.moveTo(0, 500);
       ctx.lineTo(canvas.width, 500);
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 2;
       ctx.strokeStyle = '#000000';
       ctx.stroke();
 
