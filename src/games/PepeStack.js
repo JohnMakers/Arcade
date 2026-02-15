@@ -306,6 +306,9 @@ const PepeStack = ({ onExit }) => {
 
   const triggerDrop = () => {
       if (gameState.current.mode === 'HOVER') {
+          // --- FIX: Immediately update state to hide instruction text ---
+          if (!isPlaying) setIsPlaying(true);
+          
           gameState.current.mode = 'DROPPING';
           gameState.current.current.vy = 5; 
       }
