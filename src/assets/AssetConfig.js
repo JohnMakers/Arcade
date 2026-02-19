@@ -53,7 +53,17 @@ export const ASSETS = {
   STACK_BLOCK_2: "assets/stack_2.png",
   STACK_BLOCK_3: "assets/stack_3.png", 
   STACK_BLOCK_4: "assets/stack_4.png", // 
+
+
+  // --- NORMIE INVADERS ---
+  INVADER_PEPE: "assets/normie_hero.png",
+  INVADER_NORMIE: "assets/normie_enemy.png",
+  INVADER_BOSS: "assets/normie_boss.png", 
+  INVADER_BOLT: "assets/normie_bolt.png", // The Alpha Bolts
+  INVADER_FUD: "assets/normie_fud.png",   // Enemy FUD bullets
 };
+
+
 
 export const SOUNDS = {
   // Placeholder sound logic 
