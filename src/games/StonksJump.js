@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useContext } from 'react';
 import { ASSETS } from '../assets/AssetConfig';
 import { supabase } from '../lib/supabaseClient';
 import { UserContext } from '../context/UserContext';
-import GameUI from '../components/GameUI';
+import GameUI from './components/GameUI';
 
 const StonksJump = ({ onExit }) => {
   const canvasRef = useRef(null);
