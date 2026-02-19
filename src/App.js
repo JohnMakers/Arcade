@@ -7,7 +7,7 @@ import StonksJump from './games/StonksJump';
 import ChadRun from './games/ChadRun';
 import TendiesMan from './games/TendiesMan'; 
 import PepeStack from './games/PepeStack'; 
-import NormieInvaders from './components/games/NormieInvaders';
+import NormieInvaders from './games/NormieInvaders';
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
