@@ -18,6 +18,7 @@ const NormieInvaders = ({ onExit }) => {
   const gameState = useRef({
     score: 0,
     wave: 1,
+    stage: 1,
     isLooping: false,
     player: { x: 375, y: 530, width: 50, height: 50, speed: 5 },
     bullets: [],
@@ -25,7 +26,8 @@ const NormieInvaders = ({ onExit }) => {
     enemyBullets: [],
     enemyDirection: 1, 
     enemySpeed: 1,
-    enemyFireRate: 0.01, 
+    enemyFireRate: 0.0005, // Drastically reduced base fire rate
+    maxEnemyBullets: 3,    // Cap the number of bullets to ensure it's always dodgeable
     lastShotFrame: 0,
     frameCount: 0
   });
@@ -33,27 +35,42 @@ const NormieInvaders = ({ onExit }) => {
   const keys = useRef({ ArrowLeft: false, ArrowRight: false, a: false, d: false });
 
   const initWave = (waveNum) => {
-    const rows = 3 + Math.floor(waveNum / 3); 
-    const cols = 8;
-    const startY = 50 + (waveNum * 15); 
+    // Stage logic: Stages level up every 3 waves
+    const stage = Math.ceil(waveNum / 3);
+    
+    // Scale enemies slowly based on wave
+    const cols = Math.min(5 + Math.floor(waveNum / 2), 11); // Max 11 columns
+    const rows = Math.min(3 + Math.floor(waveNum / 3), 6);  // Max 6 rows
+    
+    // Center the enemies on screen based on how many columns there are
+    const spacingX = 55;
+    const startX = (800 - (cols * spacingX)) / 2;
+    const startY = 50 + (stage * 10); 
+
     let newEnemies = [];
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         newEnemies.push({
-          x: c * 60 + 50,
-          y: r * 50 + startY,
-          width: 40,
-          height: 40,
-          isBoss: r === 0 && waveNum % 3 === 0 
+          x: c * spacingX + startX,
+          y: r * 45 + startY,
+          width: 35,
+          height: 35,
+          isBoss: r === 0 && waveNum >= 3 // Bosses appear from wave 3 onwards
         });
       }
     }
 
+    gameState.current.stage = stage;
     gameState.current.enemies = newEnemies;
-    gameState.current.enemySpeed = 1 + (waveNum * 0.2);
-    gameState.current.enemyFireRate = 0.01 + (waveNum * 0.005);
-    gameState.current.player.speed = 5 + (waveNum * 0.5); 
+    
+    // Slow, infinite scaling
+    gameState.current.enemySpeed = 0.8 + (waveNum * 0.15);
+    gameState.current.enemyFireRate = 0.0005 + (waveNum * 0.0002); // Much gentler increase
+    gameState.current.maxEnemyBullets = 2 + Math.floor(waveNum * 0.8); // Always leaves gaps to dodge
+    
+    // Player speeds up slightly to match the pace, staying "always possible"
+    gameState.current.player.speed = 5 + (waveNum * 0.2); 
   };
 
   const startGame = () => {
@@ -65,10 +82,12 @@ const NormieInvaders = ({ onExit }) => {
       ...gameState.current,
       score: 0,
       wave: 1,
+      stage: 1,
       bullets: [],
       enemyBullets: [],
       enemyDirection: 1,
       frameCount: 0,
+      lastShotFrame: 0, // <-- THE BUG FIX: Reset the shot timer on restart
       player: { ...gameState.current.player, x: 375 }
     };
 
@@ -105,30 +124,41 @@ const NormieInvaders = ({ onExit }) => {
     const state = gameState.current;
     state.frameCount++;
 
+    // Player Movement
     if (keys.current.ArrowLeft || keys.current.a) state.player.x -= state.player.speed;
     if (keys.current.ArrowRight || keys.current.d) state.player.x += state.player.speed;
     
     if (state.player.x < 0) state.player.x = 0;
     if (state.player.x + state.player.width > 800) state.player.x = 800 - state.player.width;
 
+    // Auto Fire
     if (state.frameCount - state.lastShotFrame > 15) { 
       state.bullets.push({ x: state.player.x + state.player.width / 2 - 5, y: state.player.y, width: 10, height: 20, speed: 8 });
       state.lastShotFrame = state.frameCount;
     }
 
+    // Update Bullets
     state.bullets.forEach(b => b.y -= b.speed);
     state.bullets = state.bullets.filter(b => b.y > 0);
 
     state.enemyBullets.forEach(eb => eb.y += eb.speed);
     state.enemyBullets = state.enemyBullets.filter(eb => eb.y < 600);
 
+    // Update Enemies
     let hitWall = false;
     state.enemies.forEach(enemy => {
       enemy.x += state.enemySpeed * state.enemyDirection;
       if (enemy.x <= 0 || enemy.x + enemy.width >= 800) hitWall = true;
       
-      if (Math.random() < state.enemyFireRate) {
-        state.enemyBullets.push({ x: enemy.x + enemy.width / 2, y: enemy.y + enemy.height, width: 8, height: 16, speed: 4 + (state.wave * 0.5) });
+      // Enemy Fire Logic (with limits)
+      if (Math.random() < state.enemyFireRate && state.enemyBullets.length < state.maxEnemyBullets) {
+        state.enemyBullets.push({ 
+          x: enemy.x + enemy.width / 2 - 4, 
+          y: enemy.y + enemy.height, 
+          width: 8, 
+          height: 16, 
+          speed: 3 + (state.wave * 0.3) 
+        });
       }
     });
 
@@ -137,6 +167,7 @@ const NormieInvaders = ({ onExit }) => {
       state.enemies.forEach(enemy => enemy.y += 20); 
     }
 
+    // Collisions: Player Bullets -> Enemies
     state.bullets.forEach((b, bIdx) => {
       state.enemies.forEach((e, eIdx) => {
         if (b.x < e.x + e.width && b.x + b.width > e.x && b.y < e.y + e.height && b.y + b.height > e.y) {
@@ -148,6 +179,7 @@ const NormieInvaders = ({ onExit }) => {
       });
     });
 
+    // Collisions: Enemy Bullets -> Player
     state.enemyBullets.forEach(eb => {
       const p = state.player;
       if (eb.x < p.x + p.width && eb.x + eb.width > p.x && eb.y < p.y + p.height && eb.y + eb.height > p.y) {
@@ -155,10 +187,12 @@ const NormieInvaders = ({ onExit }) => {
       }
     });
 
+    // Enemies reaching the bottom
     state.enemies.forEach(e => {
       if (e.y + e.height >= state.player.y) triggerGameOver();
     });
 
+    // Next Wave Trigger
     if (state.enemies.length === 0) {
       state.wave++;
       initWave(state.wave);
@@ -177,18 +211,31 @@ const NormieInvaders = ({ onExit }) => {
     const ctx = canvas.getContext('2d');
     const state = gameState.current;
 
+    // Background
     ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, 800, 600);
 
+    // Stage/Wave text in background
+    ctx.fillStyle = '#222';
+    ctx.font = 'bold 80px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`STAGE ${state.stage}`, 400, 300);
+    ctx.font = 'bold 30px monospace';
+    ctx.fillText(`WAVE ${state.wave}`, 400, 350);
+
+    // Player
     ctx.fillStyle = '#00ff00';
     ctx.fillRect(state.player.x, state.player.y, state.player.width, state.player.height);
 
+    // Player Bullets
     ctx.fillStyle = '#00ffff';
     state.bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
 
+    // Enemy Bullets
     ctx.fillStyle = '#ff0000';
     state.enemyBullets.forEach(eb => ctx.fillRect(eb.x, eb.y, eb.width, eb.height));
 
+    // Enemies
     state.enemies.forEach(e => {
       ctx.fillStyle = e.isBoss ? '#ff00ff' : '#aaaaaa';
       ctx.fillRect(e.x, e.y, e.width, e.height);
