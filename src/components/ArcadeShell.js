@@ -95,6 +95,11 @@ const ArcadeShell = ({ onSelectGame }) => {
         <button className="btn-meme" onClick={() => onSelectGame('tendies')}>TENDIES MAN</button>
         <button className="btn-meme" onClick={() => onSelectGame('stack')}>PEPE STACK</button>
         <button className="btn-meme" onClick={() => onSelectGame('normies')}>NORMIE INVADERS</button>
+        {/* DUMMY BUTTON TO BALANCE THE GRID */}
+        <button className="btn-meme" style={{ opacity: 0.5, cursor: 'not-allowed' }} disabled>
+          [ REDACTED ]
+        </button>
+
       </div>
       </div>
   );

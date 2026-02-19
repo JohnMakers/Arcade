@@ -7,6 +7,7 @@ import StonksJump from './games/StonksJump';
 import ChadRun from './games/ChadRun';
 import TendiesMan from './games/TendiesMan'; 
 import PepeStack from './games/PepeStack'; 
+import NormieInvaders from './components/games/NormieInvaders';
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
@@ -19,6 +20,7 @@ function App() {
       case 'chadrun': return <ChadRun onExit={() => setActiveGame(null)} />;
       case 'tendies': return <TendiesMan onExit={() => setActiveGame(null)} />;
       case 'stack': return <PepeStack onExit={() => setActiveGame(null)} />; 
+      case 'normies': return <NormieInvaders onExit={() => setActiveGame(null)} />;
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };
