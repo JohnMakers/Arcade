@@ -8,6 +8,7 @@ const NormieInvaders = ({ onExit }) => {
   const { username } = useContext(UserContext);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const requestRef = useRef(null); // Keeps track of the animation frame
   
   // UI State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -20,6 +21,7 @@ const NormieInvaders = ({ onExit }) => {
     wave: 1,
     stage: 1,
     isLooping: false,
+    isActive: false, // NEW: controls if logic runs (false during countdown/game over)
     player: { x: 375, y: 530, width: 50, height: 50, speed: 5 },
     bullets: [],
     enemies: [],
@@ -30,7 +32,7 @@ const NormieInvaders = ({ onExit }) => {
     maxEnemyBullets: 3,    
     lastShotFrame: 0,
     frameCount: 0,
-    sprites: {} // <-- New: Object to hold loaded image assets
+    sprites: {} 
   });
 
   const keys = useRef({ ArrowLeft: false, ArrowRight: false, a: false, d: false });
@@ -38,7 +40,7 @@ const NormieInvaders = ({ onExit }) => {
   // --- PRELOAD ASSETS ---
   useEffect(() => {
     const load = (key, src) => {
-      if (!src) return; // Skip if URL isn't defined yet
+      if (!src) return; 
       const img = new Image();
       img.src = src;
       img.crossOrigin = "Anonymous";
@@ -96,6 +98,7 @@ const NormieInvaders = ({ onExit }) => {
       score: 0,
       wave: 1,
       stage: 1,
+      isActive: false, // Wait for countdown to finish before logic runs
       bullets: [],
       enemyBullets: [],
       enemyDirection: 1,
@@ -106,11 +109,15 @@ const NormieInvaders = ({ onExit }) => {
 
     initWave(1);
 
+    // Start drawing the background and static enemies immediately
+    gameState.current.isLooping = true;
+    cancelAnimationFrame(requestRef.current);
+    requestRef.current = requestAnimationFrame(gameLoop);
+
     setTimeout(() => {
+      gameState.current.isActive = true; // Unleash the game logic
       setIsPlaying(true);
-      gameState.current.isLooping = true;
       if (containerRef.current) containerRef.current.focus();
-      requestAnimationFrame(gameLoop);
     }, 3000);
   };
 
@@ -126,7 +133,7 @@ const NormieInvaders = ({ onExit }) => {
   };
 
   const triggerGameOver = () => {
-    gameState.current.isLooping = false;
+    gameState.current.isActive = false; // Stop movement and shooting instantly
     setGameOver(true);
     setIsPlaying(false);
     submitScore(gameState.current.score);
@@ -135,77 +142,82 @@ const NormieInvaders = ({ onExit }) => {
   const gameLoop = () => {
     if (!gameState.current.isLooping) return;
     const state = gameState.current;
-    state.frameCount++;
-
-    if (keys.current.ArrowLeft || keys.current.a) state.player.x -= state.player.speed;
-    if (keys.current.ArrowRight || keys.current.d) state.player.x += state.player.speed;
     
-    if (state.player.x < 0) state.player.x = 0;
-    if (state.player.x + state.player.width > 800) state.player.x = 800 - state.player.width;
+    // --- ONLY RUN GAME LOGIC IF ACTIVE (Past countdown, not game over) ---
+    if (state.isActive) {
+      state.frameCount++;
 
-    if (state.frameCount - state.lastShotFrame > 15) { 
-      state.bullets.push({ x: state.player.x + state.player.width / 2 - 5, y: state.player.y, width: 10, height: 20, speed: 8 });
-      state.lastShotFrame = state.frameCount;
-    }
-
-    state.bullets.forEach(b => b.y -= b.speed);
-    state.bullets = state.bullets.filter(b => b.y > 0);
-
-    state.enemyBullets.forEach(eb => eb.y += eb.speed);
-    state.enemyBullets = state.enemyBullets.filter(eb => eb.y < 600);
-
-    let hitWall = false;
-    state.enemies.forEach(enemy => {
-      enemy.x += state.enemySpeed * state.enemyDirection;
-      if (enemy.x <= 0 || enemy.x + enemy.width >= 800) hitWall = true;
+      if (keys.current.ArrowLeft || keys.current.a) state.player.x -= state.player.speed;
+      if (keys.current.ArrowRight || keys.current.d) state.player.x += state.player.speed;
       
-      if (Math.random() < state.enemyFireRate && state.enemyBullets.length < state.maxEnemyBullets) {
-        state.enemyBullets.push({ 
-          x: enemy.x + enemy.width / 2 - 4, 
-          y: enemy.y + enemy.height, 
-          width: 8, 
-          height: 16, 
-          speed: 3 + (state.wave * 0.3) 
-        });
+      if (state.player.x < 0) state.player.x = 0;
+      if (state.player.x + state.player.width > 800) state.player.x = 800 - state.player.width;
+
+      if (state.frameCount - state.lastShotFrame > 15) { 
+        state.bullets.push({ x: state.player.x + state.player.width / 2 - 5, y: state.player.y, width: 10, height: 20, speed: 8 });
+        state.lastShotFrame = state.frameCount;
       }
-    });
 
-    if (hitWall) {
-      state.enemyDirection *= -1;
-      state.enemies.forEach(enemy => enemy.y += 20); 
-    }
+      state.bullets.forEach(b => b.y -= b.speed);
+      state.bullets = state.bullets.filter(b => b.y > 0);
 
-    state.bullets.forEach((b, bIdx) => {
-      state.enemies.forEach((e, eIdx) => {
-        if (b.x < e.x + e.width && b.x + b.width > e.x && b.y < e.y + e.height && b.y + b.height > e.y) {
-          state.score += e.isBoss ? 50 : 10;
-          setScoreUI(state.score);
-          state.enemies.splice(eIdx, 1);
-          state.bullets.splice(bIdx, 1);
+      state.enemyBullets.forEach(eb => eb.y += eb.speed);
+      state.enemyBullets = state.enemyBullets.filter(eb => eb.y < 600);
+
+      let hitWall = false;
+      state.enemies.forEach(enemy => {
+        enemy.x += state.enemySpeed * state.enemyDirection;
+        if (enemy.x <= 0 || enemy.x + enemy.width >= 800) hitWall = true;
+        
+        if (Math.random() < state.enemyFireRate && state.enemyBullets.length < state.maxEnemyBullets) {
+          state.enemyBullets.push({ 
+            x: enemy.x + enemy.width / 2 - 4, 
+            y: enemy.y + enemy.height, 
+            width: 8, 
+            height: 16, 
+            speed: 3 + (state.wave * 0.3) 
+          });
         }
       });
-    });
 
-    state.enemyBullets.forEach(eb => {
-      const p = state.player;
-      if (eb.x < p.x + p.width && eb.x + eb.width > p.x && eb.y < p.y + p.height && eb.y + eb.height > p.y) {
-        triggerGameOver();
+      if (hitWall) {
+        state.enemyDirection *= -1;
+        state.enemies.forEach(enemy => enemy.y += 20); 
       }
-    });
 
-    state.enemies.forEach(e => {
-      if (e.y + e.height >= state.player.y) triggerGameOver();
-    });
+      state.bullets.forEach((b, bIdx) => {
+        state.enemies.forEach((e, eIdx) => {
+          if (b.x < e.x + e.width && b.x + b.width > e.x && b.y < e.y + e.height && b.y + b.height > e.y) {
+            state.score += e.isBoss ? 50 : 10;
+            setScoreUI(state.score);
+            state.enemies.splice(eIdx, 1);
+            state.bullets.splice(bIdx, 1);
+          }
+        });
+      });
 
-    if (state.enemies.length === 0) {
-      state.wave++;
-      initWave(state.wave);
+      state.enemyBullets.forEach(eb => {
+        const p = state.player;
+        if (eb.x < p.x + p.width && eb.x + eb.width > p.x && eb.y < p.y + p.height && eb.y + eb.height > p.y) {
+          triggerGameOver();
+        }
+      });
+
+      state.enemies.forEach(e => {
+        if (e.y + e.height >= state.player.y) triggerGameOver();
+      });
+
+      if (state.enemies.length === 0) {
+        state.wave++;
+        initWave(state.wave);
+      }
     }
 
+    // --- ALWAYS DRAW THE FRAME ---
     draw();
 
     if (state.isLooping) {
-      requestAnimationFrame(gameLoop);
+      requestRef.current = requestAnimationFrame(gameLoop);
     }
   };
 
@@ -225,7 +237,7 @@ const NormieInvaders = ({ onExit }) => {
     }
 
     // Stage/Wave text
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; // Made slightly more transparent to blend with BG
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; 
     ctx.font = 'bold 80px monospace';
     ctx.textAlign = 'center';
     ctx.fillText(`STAGE ${state.stage}`, 400, 300);
@@ -273,6 +285,7 @@ const NormieInvaders = ({ onExit }) => {
   };
 
   useEffect(() => {
+    // --- KEYBOARD CONTROLS ---
     const handleKeyDown = (e) => {
       if (e.target && e.target.closest('button')) return;
       if(["ArrowLeft","ArrowRight","a","d"].includes(e.key)) e.preventDefault();
@@ -285,12 +298,66 @@ const NormieInvaders = ({ onExit }) => {
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     window.addEventListener('keyup', handleKeyUp);
 
+    // --- MOBILE TOUCH CONTROLS ---
+    const wrapper = containerRef.current;
+    let lastTouchX = null;
+
+    const onTouchStart = (e) => {
+      if (e.target.closest('button') || e.target.closest('.interactive')) return;
+      if (e.cancelable) e.preventDefault();
+      lastTouchX = e.changedTouches[0].clientX;
+    };
+
+    const onTouchMove = (e) => {
+      if (e.target.closest('button') || e.target.closest('.interactive')) return;
+      if (e.cancelable) e.preventDefault();
+      
+      if (lastTouchX !== null && gameState.current.isActive) {
+        const currentX = e.changedTouches[0].clientX;
+        const deltaX = currentX - lastTouchX;
+        
+        // Scale movement relative to actual screen size vs internal 800px canvas
+        const rect = wrapper.getBoundingClientRect();
+        const scale = 800 / rect.width;
+
+        gameState.current.player.x += deltaX * scale;
+        
+        // Clamp to screen bounds
+        if (gameState.current.player.x < 0) gameState.current.player.x = 0;
+        if (gameState.current.player.x + gameState.current.player.width > 800) {
+          gameState.current.player.x = 800 - gameState.current.player.width;
+        }
+        
+        lastTouchX = currentX;
+      }
+    };
+
+    const onTouchEnd = (e) => {
+      if (e.target.closest('button') || e.target.closest('.interactive')) return;
+      if (e.cancelable) e.preventDefault();
+      lastTouchX = null;
+    };
+
+    if (wrapper) {
+      wrapper.addEventListener('touchstart', onTouchStart, { passive: false });
+      wrapper.addEventListener('touchmove', onTouchMove, { passive: false });
+      wrapper.addEventListener('touchend', onTouchEnd, { passive: false });
+    }
+
     startGame();
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown, { capture: true });
       window.removeEventListener('keyup', handleKeyUp);
+      
+      if (wrapper) {
+        wrapper.removeEventListener('touchstart', onTouchStart);
+        wrapper.removeEventListener('touchmove', onTouchMove);
+        wrapper.removeEventListener('touchend', onTouchEnd);
+      }
+      
       gameState.current.isLooping = false; 
+      cancelAnimationFrame(requestRef.current);
     };
   }, []);
 
@@ -299,7 +366,7 @@ const NormieInvaders = ({ onExit }) => {
       ref={containerRef} 
       className="game-wrapper" 
       tabIndex="0" 
-      style={{ position: 'relative', width: 800, height: 600, margin: '0 auto', outline: '4px solid #00ff00' }}
+      style={{ position: 'relative', width: 800, height: 600, margin: '0 auto', outline: '4px solid #00ff00', touchAction: 'none' }}
       onClick={() => containerRef.current && containerRef.current.focus()}
     >
       <GameUI 
@@ -310,7 +377,7 @@ const NormieInvaders = ({ onExit }) => {
         onExit={onExit} 
         gameId="normies" 
       />
-      <canvas ref={canvasRef} width={800} height={600} />
+      <canvas ref={canvasRef} width={800} height={600} style={{ width: '100%', height: '100%' }} />
     </div>
   );
 };
