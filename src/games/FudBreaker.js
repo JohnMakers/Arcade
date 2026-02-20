@@ -24,8 +24,8 @@ const FudBreaker = ({ onExit }) => {
   
   const INITIAL_BALL_SPEED = 6;
   const MAX_BALL_SPEED = 16;
-  const SPEED_MULTIPLIER = 1.005; // +0.5% per paddle hit
-  const PADDLE_KEY_SPEED = 400; // Pixels per second for keyboard
+  const SPEED_MULTIPLIER = 1.005; 
+  const PADDLE_KEY_SPEED = 400; 
 
   const BRICK_COLS = 7;
   const BRICK_PADDING = 10;
@@ -33,7 +33,7 @@ const FudBreaker = ({ onExit }) => {
   const BRICK_OFFSET_LEFT = 15;
   const BRICK_WIDTH = (CANVAS_WIDTH - (BRICK_OFFSET_LEFT * 2) - (BRICK_PADDING * (BRICK_COLS - 1))) / BRICK_COLS;
   const BRICK_HEIGHT = 30;
-  const DANGER_ZONE_Y = CANVAS_HEIGHT - 120; // If bricks touch this, Game Over
+  const DANGER_ZONE_Y = CANVAS_HEIGHT - 120; 
 
   const gameState = useRef({
     sprites: {},
@@ -47,7 +47,10 @@ const FudBreaker = ({ onExit }) => {
     lastTime: 0,
     keys: { left: false, right: false },
     
-    // Infinite Scaling Trackers
+    // Decoupled loop states
+    isPlaying: false,
+    gameOver: false,
+    
     totalBricksBroken: 0,
     bricksSinceSpawn: 0,
     nextSpawnTarget: 5
@@ -66,11 +69,18 @@ const FudBreaker = ({ onExit }) => {
     loadSprite('paddle', ASSETS.FUD_PADDLE);
     loadSprite('ball', ASSETS.FUD_BALL);
     loadSprite('brick', ASSETS.FUD_BRICK);
+    loadSprite('brick_tough', ASSETS.FUD_BRICK_TOUGH); // <--- NEW ASSET LOADED
     loadSprite('power_wide', ASSETS.FUD_POWER_WIDE);
     loadSprite('power_diamond', ASSETS.FUD_POWER_DIAMOND);
   }, []);
 
-  // Input Handling (Mouse, Touch, & Keyboard)
+  // Sync React State to Game State ref to prevent loop re-renders
+  useEffect(() => {
+    gameState.current.isPlaying = isPlaying;
+    gameState.current.gameOver = gameOver;
+  }, [isPlaying, gameOver]);
+
+  // Input Handling
   useEffect(() => {
     const handleMove = (e) => {
       if (!isPlaying || gameOver) return;
@@ -92,7 +102,6 @@ const FudBreaker = ({ onExit }) => {
         const paddle = gameState.current.paddle;
         paddle.x = mouseX - paddle.w / 2;
         
-        // Clamp
         if (paddle.x < 0) paddle.x = 0;
         if (paddle.x + paddle.w > CANVAS_WIDTH) paddle.x = CANVAS_WIDTH - paddle.w;
       }
@@ -135,37 +144,10 @@ const FudBreaker = ({ onExit }) => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    const spawnBrickRow = () => {
-      const state = gameState.current;
-      
-      // Cleanup dead bricks to prevent array bloat
-      state.bricks = state.bricks.filter(b => b.status === 1);
-
-      // Shift existing bricks down
-      state.bricks.forEach(b => {
-        b.y += BRICK_HEIGHT + BRICK_PADDING;
-      });
-
-      // Check if FUD overwhelmed the player
-      const lowestBrick = Math.max(...state.bricks.map(b => b.y + b.h), 0);
-      if (lowestBrick >= DANGER_ZONE_Y) {
-          triggerGameOver();
-          return;
-      }
-
-      // Spawn new row at the top
-      for (let c = 0; c < BRICK_COLS; c++) {
-        state.bricks.push({
-          x: BRICK_OFFSET_LEFT + c * (BRICK_WIDTH + BRICK_PADDING),
-          y: BRICK_OFFSET_TOP,
-          w: BRICK_WIDTH,
-          h: BRICK_HEIGHT,
-          status: 1
-        });
-      }
-    };
-
     const triggerGameOver = async () => {
+      const finalScore = gameState.current.score;
+      gameState.current.gameOver = true;
+      gameState.current.isPlaying = false;
       setGameOver(true);
       setIsPlaying(false);
       
@@ -173,9 +155,35 @@ const FudBreaker = ({ onExit }) => {
         await supabase.from('leaderboards').insert([{
             game_id: 'fudbreaker', 
             username, 
-            score: gameState.current.score, 
+            score: finalScore, 
             address: address
         }]);
+      }
+    };
+
+    const spawnBrickRow = () => {
+      const state = gameState.current;
+      state.bricks = state.bricks.filter(b => b.status === 1);
+
+      state.bricks.forEach(b => { b.y += BRICK_HEIGHT + BRICK_PADDING; });
+
+      const lowestBrick = Math.max(...state.bricks.map(b => b.y + b.h), 0);
+      if (lowestBrick >= DANGER_ZONE_Y) {
+          triggerGameOver();
+          return;
+      }
+
+      for (let c = 0; c < BRICK_COLS; c++) {
+        const isTough = Math.random() < 0.2;
+        state.bricks.push({
+          x: BRICK_OFFSET_LEFT + c * (BRICK_WIDTH + BRICK_PADDING),
+          y: BRICK_OFFSET_TOP,
+          w: BRICK_WIDTH,
+          h: BRICK_HEIGHT,
+          status: 1,
+          hp: isTough ? 2 : 1,
+          maxHp: isTough ? 2 : 1
+        });
       }
     };
 
@@ -195,26 +203,20 @@ const FudBreaker = ({ onExit }) => {
     state.ball.y = state.paddle.y - BALL_RADIUS - 5;
     state.ball.speed = INITIAL_BALL_SPEED;
     
-    // Initial drop direction
     state.ball.vx = (Math.random() > 0.5 ? 1 : -1) * 2;
     state.ball.vy = state.ball.speed;
     
     setScore(0);
-    
-    // Start with 5 rows of bricks
-    for(let i=0; i<5; i++) {
-        spawnBrickRow();
-    }
+    for(let i=0; i<5; i++) { spawnBrickRow(); }
 
     state.lastTime = performance.now();
     let animationId;
 
     const loop = (time) => {
-      const dt = Math.min((time - state.lastTime) / 1000, 0.03); // dt in seconds, capped at 30ms
-      const dtFrames = dt * 60; // normalized to 60fps for legacy logic
+      const dt = Math.min((time - state.lastTime) / 1000, 0.03); 
+      const dtFrames = dt * 60; 
       state.lastTime = time;
 
-      // Clear Screen
       ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -224,7 +226,6 @@ const FudBreaker = ({ onExit }) => {
         ctx.globalAlpha = 1.0;
       }
 
-      // Draw Danger Zone Line
       ctx.beginPath();
       ctx.moveTo(0, DANGER_ZONE_Y);
       ctx.lineTo(CANVAS_WIDTH, DANGER_ZONE_Y);
@@ -234,16 +235,13 @@ const FudBreaker = ({ onExit }) => {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      if (isPlaying && !gameOver) {
-        // --- TIMERS ---
+      if (state.isPlaying && !state.gameOver) {
         if (state.diamondTimer > 0) state.diamondTimer -= dtFrames;
         
-        // --- PADDLE SIZING & KEYBOARD MOVEMENT ---
         if (state.wideTimer > 0) {
           state.wideTimer -= dtFrames;
           state.paddle.w = INITIAL_PADDLE_WIDTH * 1.5; 
         } else {
-          // Dynamic Paddle Shrink: Shrink 1px per 10 bricks, down to MIN width
           const shrink = Math.floor(state.totalBricksBroken / 10);
           state.paddle.w = Math.max(MIN_PADDLE_WIDTH, INITIAL_PADDLE_WIDTH - shrink);
         }
@@ -254,11 +252,9 @@ const FudBreaker = ({ onExit }) => {
         if (state.paddle.x < 0) state.paddle.x = 0;
         if (state.paddle.x + state.paddle.w > CANVAS_WIDTH) state.paddle.x = CANVAS_WIDTH - state.paddle.w;
 
-        // --- BALL PHYSICS ---
         state.ball.x += state.ball.vx * dtFrames;
         state.ball.y += state.ball.vy * dtFrames;
 
-        // Wall collisions
         if (state.ball.x + BALL_RADIUS > CANVAS_WIDTH) {
           state.ball.x = CANVAS_WIDTH - BALL_RADIUS;
           state.ball.vx = -state.ball.vx;
@@ -273,7 +269,6 @@ const FudBreaker = ({ onExit }) => {
           triggerGameOver();
         }
 
-        // Paddle Collision 
         if (
           state.ball.vy > 0 &&
           state.ball.y + BALL_RADIUS >= state.paddle.y &&
@@ -281,7 +276,6 @@ const FudBreaker = ({ onExit }) => {
           state.ball.x >= state.paddle.x &&
           state.ball.x <= state.paddle.x + state.paddle.w
         ) {
-          // Increase speed infinitely but cap it
           state.ball.speed = Math.min(state.ball.speed * SPEED_MULTIPLIER, MAX_BALL_SPEED);
           
           let hitPoint = state.ball.x - (state.paddle.x + state.paddle.w / 2);
@@ -293,8 +287,8 @@ const FudBreaker = ({ onExit }) => {
           state.ball.y = state.paddle.y - BALL_RADIUS; 
         }
 
-        // Brick Collision
         let hitBrickThisFrame = false;
+        let primaryHitBrick = null;
         
         for (let i = 0; i < state.bricks.length; i++) {
           let b = state.bricks[i];
@@ -305,51 +299,73 @@ const FudBreaker = ({ onExit }) => {
             let distanceY = state.ball.y - closestY;
 
             if ((distanceX * distanceX + distanceY * distanceY) < (BALL_RADIUS * BALL_RADIUS)) {
-              b.status = 0;
-              state.score += 10;
-              state.totalBricksBroken++;
-              state.bricksSinceSpawn++;
-              setScore(state.score);
+              b.hp -= 1;
+              
+              if (b.hp <= 0) {
+                  b.status = 0;
+                  state.score += 10;
+                  state.totalBricksBroken++;
+                  state.bricksSinceSpawn++;
 
-              // Powerup Drop Chance (10%)
-              if (Math.random() < 0.10) {
-                state.powerups.push({
-                  x: b.x + b.w / 2,
-                  y: b.y,
-                  type: Math.random() > 0.5 ? 'WIDE' : 'DIAMOND',
-                  vy: 3,
-                  w: 30, h: 30
-                });
-              }
-
-              // Normal Bounce (Unless Diamond Hands is active)
-              if (state.diamondTimer <= 0) {
-                 if (Math.abs(distanceX) > Math.abs(distanceY)) {
-                     state.ball.vx = -state.ball.vx;
-                 } else {
-                     state.ball.vy = -state.ball.vy;
-                 }
-                 hitBrickThisFrame = true;
+                  if (Math.random() < 0.05) {
+                    state.powerups.push({
+                      x: b.x + b.w / 2,
+                      y: b.y,
+                      type: Math.random() > 0.5 ? 'WIDE' : 'DIAMOND',
+                      vy: 3,
+                      w: 30, h: 30
+                    });
+                  }
+              } else {
+                  state.score += 5; 
               }
               
-              // THE FIX: Break out of the loop so we only process one collision per frame
-              if (hitBrickThisFrame) break; 
+              setScore(state.score);
+
+              if (Math.abs(distanceX) > Math.abs(distanceY)) {
+                  state.ball.vx = -state.ball.vx;
+              } else {
+                  state.ball.vy = -state.ball.vy;
+              }
+              
+              hitBrickThisFrame = true;
+              primaryHitBrick = b;
+              break; 
             }
           }
         }
 
-        // --- INFINITE SCALING: SPAWN LOGIC ---
+        if (hitBrickThisFrame && state.diamondTimer > 0) {
+            const blastRadius = BRICK_WIDTH * 1.5;
+            state.bricks.forEach(otherB => {
+                if (otherB.status === 1 && otherB !== primaryHitBrick) {
+                    let dx = (primaryHitBrick.x + primaryHitBrick.w/2) - (otherB.x + otherB.w/2);
+                    let dy = (primaryHitBrick.y + primaryHitBrick.h/2) - (otherB.y + otherB.h/2);
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (dist <= blastRadius) {
+                        otherB.hp -= 1;
+                        if (otherB.hp <= 0) {
+                            otherB.status = 0;
+                            state.score += 10;
+                            state.totalBricksBroken++;
+                            state.bricksSinceSpawn++;
+                        } else {
+                            state.score += 5;
+                        }
+                    }
+                }
+            });
+            setScore(state.score);
+        }
+
         let activeBricksCount = state.bricks.filter(b => b.status === 1).length;
-        
-        // Spawn if they hit the target OR if the board is getting too empty
         if (state.bricksSinceSpawn >= state.nextSpawnTarget || activeBricksCount < 12) {
             spawnBrickRow();
             state.bricksSinceSpawn = 0;
-            // Randomize next target between 4 and 8 bricks
             state.nextSpawnTarget = Math.floor(Math.random() * 5) + 4;
         }
 
-        // Powerup Physics & Collision
         state.powerups.forEach(p => {
             p.y += p.vy * dtFrames;
             if (
@@ -371,14 +387,24 @@ const FudBreaker = ({ onExit }) => {
 
       state.bricks.forEach(b => {
         if (b.status === 1) {
-          if (state.sprites['brick']) {
-             ctx.drawImage(state.sprites['brick'], b.x, b.y, b.w, b.h);
+          ctx.save();
+          
+          if (b.hp < b.maxHp) {
+              ctx.globalAlpha = 0.5;
+          }
+          
+          // --- NEW: Select correct sprite based on Max HP ---
+          const spriteKey = b.maxHp === 2 ? 'brick_tough' : 'brick';
+          
+          if (state.sprites[spriteKey]) {
+             ctx.drawImage(state.sprites[spriteKey], b.x, b.y, b.w, b.h);
           } else {
-             ctx.fillStyle = '#ff0000';
+             ctx.fillStyle = b.maxHp === 2 ? '#aa0000' : '#ff0000';
              ctx.fillRect(b.x, b.y, b.w, b.h);
              ctx.strokeStyle = '#fff';
              ctx.strokeRect(b.x, b.y, b.w, b.h);
           }
+          ctx.restore();
         }
       });
 
@@ -409,7 +435,6 @@ const FudBreaker = ({ onExit }) => {
          ctx.closePath();
       }
       
-      // HUD
       ctx.fillStyle = 'lime';
       ctx.font = '16px "Press Start 2P", monospace';
       ctx.textAlign = 'left';
@@ -423,7 +448,7 @@ const FudBreaker = ({ onExit }) => {
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [resetKey, isPlaying]);
+  }, [resetKey]); 
 
   return (
     <div ref={containerRef} className="game-wrapper" style={{ position: 'relative', outline: 'none' }} tabIndex="0">
