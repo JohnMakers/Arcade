@@ -56,11 +56,11 @@ export const ASSETS = {
 
 
   // --- NORMIE INVADERS ---
-  INVADER_PEPE: "assets/normie_hero.png",
-  INVADER_NORMIE: "assets/normie_enemy.png",
-  INVADER_BOSS: "assets/normie_boss.png", 
-  INVADER_BOLT: "assets/normie_bolt.png", // The Alpha Bolts
-  INVADER_FUD: "assets/normie_fud.png",   // Enemy FUD bullets
+  INVADER_PEPE: "assets/ni_hero.png",
+  INVADER_NORMIE: "assets/ni_enemy.png",
+  INVADER_BOSS: "assets/ni_boss.png", 
+  INVADER_BOLT: "assets/ni_pump.png", // The Alpha Bolts
+  INVADER_FUD: "assets/ni_fud.png",   // Enemy FUD bullets
 };
 
 
