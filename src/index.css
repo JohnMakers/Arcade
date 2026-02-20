@@ -167,6 +167,9 @@ canvas {
     gap: 15px;
     width: 100%;
     justify-items: center; /* Center buttons in grid */
+    max-height: 60vh; 
+    overflow-y: auto; 
+    padding-bottom: 20px;
 }
 
 /* --- MOBILE ADAPTABILITY --- */
