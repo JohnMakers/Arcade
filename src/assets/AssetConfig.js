@@ -63,14 +63,23 @@ export const ASSETS = {
   INVADER_FUD: "assets/ni_fud.png",   
   INVADER_BG: "assets/ni_bg.png",
 
-
+ // --- Fud Breaker ---
   FUD_BG: "assets/fb_bg.png",
-  FUD_PADDLE: "assets/fb_pad.png",      // The Pepe paddle
-  FUD_BALL: "assets/fb_coin.png",     // The Bitcoin ball
-  FUD_BRICK: "assets/fb_wall.png",      // The FUD brick
-  FUD_POWER_WIDE: "assets/fb_wide.png",  // Wide Pepe powerup
+  FUD_PADDLE: "assets/fb_pad.png",      
+  FUD_BALL: "assets/fb_coin.png",     
+  FUD_BRICK: "assets/fb_wall.png",      
+  FUD_POWER_WIDE: "assets/fb_wide.png",  
   FUD_POWER_DIAMOND: "assets/fb_diamond.png",
   FUD_BRICK_TOUGH: "assets/fb_wall2.png",
+
+  // --- PEPE FALL ---
+  FALL_HERO: "assets/pf_hero.png",
+  FALL_LASER: "assets/pf_laser.png",
+  FALL_PLATFORM: "assets/pf_plat.png",
+  FALL_SPIKE: "assets/pf_spike.png", 
+  FALL_BEAR: "assets/pf_bear.png",
+  FALL_DIP: "assets/pf_dip.png", 
+  FALL_BG: "assets/pf_bg.png",
 };
 
 

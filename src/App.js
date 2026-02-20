@@ -9,6 +9,7 @@ import TendiesMan from './games/TendiesMan';
 import PepeStack from './games/PepeStack'; 
 import NormieInvaders from './games/NormieInvaders';
 import FudBreaker from './games/FudBreaker';
+import PepeFall from './games/PepeFall';
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
@@ -23,6 +24,7 @@ function App() {
       case 'stack': return <PepeStack onExit={() => setActiveGame(null)} />; 
       case 'normies': return <NormieInvaders onExit={() => setActiveGame(null)} />;
       case 'fudbreaker': return <FudBreaker onExit={() => setActiveGame(null)} />;
+      case 'pepefall': return <PepeFall onExit={() => setActiveGame(null)} />;
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };
