@@ -69,7 +69,7 @@ const FudBreaker = ({ onExit }) => {
     loadSprite('paddle', ASSETS.FUD_PADDLE);
     loadSprite('ball', ASSETS.FUD_BALL);
     loadSprite('brick', ASSETS.FUD_BRICK);
-    loadSprite('brick_tough', ASSETS.FUD_BRICK_TOUGH); // <--- NEW ASSET LOADED
+    loadSprite('brick_tough', ASSETS.FUD_BRICK_TOUGH); 
     loadSprite('power_wide', ASSETS.FUD_POWER_WIDE);
     loadSprite('power_diamond', ASSETS.FUD_POWER_DIAMOND);
   }, []);
@@ -79,6 +79,17 @@ const FudBreaker = ({ onExit }) => {
     gameState.current.isPlaying = isPlaying;
     gameState.current.gameOver = gameOver;
   }, [isPlaying, gameOver]);
+
+  // --- AUTO START TIMER ---
+  useEffect(() => {
+    if (!gameOver) {
+      // Wait exactly 3 seconds to match the GameUI countdown
+      const timer = setTimeout(() => {
+        setIsPlaying(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [resetKey, gameOver]);
 
   // Input Handling
   useEffect(() => {
@@ -110,9 +121,6 @@ const FudBreaker = ({ onExit }) => {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowLeft') gameState.current.keys.left = true;
       if (e.key === 'ArrowRight') gameState.current.keys.right = true;
-      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.code === 'Space') && !isPlaying && !gameOver) {
-          setIsPlaying(true);
-      }
     };
 
     const handleKeyUp = (e) => {
@@ -393,7 +401,6 @@ const FudBreaker = ({ onExit }) => {
               ctx.globalAlpha = 0.5;
           }
           
-          // --- NEW: Select correct sprite based on Max HP ---
           const spriteKey = b.maxHp === 2 ? 'brick_tough' : 'brick';
           
           if (state.sprites[spriteKey]) {
@@ -458,7 +465,7 @@ const FudBreaker = ({ onExit }) => {
             isPlaying={isPlaying} 
             onRestart={() => { 
                 setGameOver(false); 
-                setIsPlaying(true); 
+                setIsPlaying(false); // Make sure it stays false to trigger countdown
                 setResetKey(prev => prev + 1); 
             }} 
             onExit={onExit} 
@@ -470,15 +477,6 @@ const FudBreaker = ({ onExit }) => {
             height={CANVAS_HEIGHT} 
             style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'none' }} 
         />
-        {!isPlaying && !gameOver && (
-            <div 
-               style={{ position: 'absolute', top: '40%', width: '100%', textAlign: 'center', color: 'lime', textShadow: '2px 2px #000', cursor: 'pointer' }}
-               onClick={() => setIsPlaying(true)}
-            >
-                <h2 className="meme-text">TAP OR SPACE</h2>
-                <p>Destroy the FUD!</p>
-            </div>
-        )}
     </div>
   );
 };
