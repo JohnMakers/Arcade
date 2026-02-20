@@ -8,7 +8,7 @@ const NormieInvaders = ({ onExit }) => {
   const { username } = useContext(UserContext);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
-  const requestRef = useRef(null); // Keeps track of the animation frame
+  const requestRef = useRef(null); 
   
   // UI State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -21,7 +21,7 @@ const NormieInvaders = ({ onExit }) => {
     wave: 1,
     stage: 1,
     isLooping: false,
-    isActive: false, // NEW: controls if logic runs (false during countdown/game over)
+    isActive: false, 
     player: { x: 375, y: 530, width: 50, height: 50, speed: 5 },
     bullets: [],
     enemies: [],
@@ -32,6 +32,7 @@ const NormieInvaders = ({ onExit }) => {
     maxEnemyBullets: 3,    
     lastShotFrame: 0,
     frameCount: 0,
+    lastTime: 0, // <-- NEW: Tracks time for the 60 FPS throttle
     sprites: {} 
   });
 
@@ -98,24 +99,24 @@ const NormieInvaders = ({ onExit }) => {
       score: 0,
       wave: 1,
       stage: 1,
-      isActive: false, // Wait for countdown to finish before logic runs
+      isActive: false, 
       bullets: [],
       enemyBullets: [],
       enemyDirection: 1,
       frameCount: 0,
       lastShotFrame: 0, 
+      lastTime: performance.now(), // <-- Initialize the clock
       player: { ...gameState.current.player, x: 375 }
     };
 
     initWave(1);
 
-    // Start drawing the background and static enemies immediately
     gameState.current.isLooping = true;
     cancelAnimationFrame(requestRef.current);
     requestRef.current = requestAnimationFrame(gameLoop);
 
     setTimeout(() => {
-      gameState.current.isActive = true; // Unleash the game logic
+      gameState.current.isActive = true; 
       setIsPlaying(true);
       if (containerRef.current) containerRef.current.focus();
     }, 3000);
@@ -133,17 +134,33 @@ const NormieInvaders = ({ onExit }) => {
   };
 
   const triggerGameOver = () => {
-    gameState.current.isActive = false; // Stop movement and shooting instantly
+    gameState.current.isActive = false; 
     setGameOver(true);
     setIsPlaying(false);
     submitScore(gameState.current.score);
   };
 
-  const gameLoop = () => {
+  // --- NEW: Added 'time' parameter passed by requestAnimationFrame ---
+  const gameLoop = (time) => {
     if (!gameState.current.isLooping) return;
+    
+    // Always request the next frame immediately
+    requestRef.current = requestAnimationFrame(gameLoop);
+
     const state = gameState.current;
     
-    // --- ONLY RUN GAME LOGIC IF ACTIVE (Past countdown, not game over) ---
+    // --- 60 FPS THROTTLE FIX ---
+    // Calculate how much time passed since the last frame
+    const elapsed = time - state.lastTime;
+    
+    // If less than ~16.67ms (60 frames a second) has passed, skip this update
+    // This stops 120Hz mobile screens from running the game at 2x speed!
+    if (elapsed < 16.67) return; 
+
+    // Update the lastTime, keeping the remainder to prevent frame drift over time
+    state.lastTime = time - (elapsed % 16.67);
+
+    // --- GAME LOGIC ---
     if (state.isActive) {
       state.frameCount++;
 
@@ -215,10 +232,6 @@ const NormieInvaders = ({ onExit }) => {
 
     // --- ALWAYS DRAW THE FRAME ---
     draw();
-
-    if (state.isLooping) {
-      requestRef.current = requestAnimationFrame(gameLoop);
-    }
   };
 
   const draw = () => {
@@ -228,7 +241,6 @@ const NormieInvaders = ({ onExit }) => {
     const state = gameState.current;
     const sprites = state.sprites;
 
-    // --- DRAW BACKGROUND ---
     if (sprites['bg']) {
       ctx.drawImage(sprites['bg'], 0, 0, 800, 600);
     } else {
@@ -236,7 +248,6 @@ const NormieInvaders = ({ onExit }) => {
       ctx.fillRect(0, 0, 800, 600);
     }
 
-    // Stage/Wave text
     ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; 
     ctx.font = 'bold 80px monospace';
     ctx.textAlign = 'center';
@@ -244,7 +255,6 @@ const NormieInvaders = ({ onExit }) => {
     ctx.font = 'bold 30px monospace';
     ctx.fillText(`WAVE ${state.wave}`, 400, 350);
 
-    // --- DRAW PLAYER ---
     if (sprites['pepe']) {
       ctx.drawImage(sprites['pepe'], state.player.x, state.player.y, state.player.width, state.player.height);
     } else {
@@ -252,7 +262,6 @@ const NormieInvaders = ({ onExit }) => {
       ctx.fillRect(state.player.x, state.player.y, state.player.width, state.player.height);
     }
 
-    // --- DRAW PLAYER BULLETS ---
     state.bullets.forEach(b => {
       if (sprites['bolt']) {
         ctx.drawImage(sprites['bolt'], b.x, b.y, b.width, b.height);
@@ -262,7 +271,6 @@ const NormieInvaders = ({ onExit }) => {
       }
     });
 
-    // --- DRAW ENEMY BULLETS ---
     state.enemyBullets.forEach(eb => {
       if (sprites['fud']) {
         ctx.drawImage(sprites['fud'], eb.x, eb.y, eb.width, eb.height);
@@ -272,7 +280,6 @@ const NormieInvaders = ({ onExit }) => {
       }
     });
 
-    // --- DRAW ENEMIES ---
     state.enemies.forEach(e => {
       const spriteKey = e.isBoss ? 'boss' : 'normie';
       if (sprites[spriteKey]) {
@@ -285,7 +292,6 @@ const NormieInvaders = ({ onExit }) => {
   };
 
   useEffect(() => {
-    // --- KEYBOARD CONTROLS ---
     const handleKeyDown = (e) => {
       if (e.target && e.target.closest('button')) return;
       if(["ArrowLeft","ArrowRight","a","d"].includes(e.key)) e.preventDefault();
@@ -316,13 +322,11 @@ const NormieInvaders = ({ onExit }) => {
         const currentX = e.changedTouches[0].clientX;
         const deltaX = currentX - lastTouchX;
         
-        // Scale movement relative to actual screen size vs internal 800px canvas
         const rect = wrapper.getBoundingClientRect();
         const scale = 800 / rect.width;
 
         gameState.current.player.x += deltaX * scale;
         
-        // Clamp to screen bounds
         if (gameState.current.player.x < 0) gameState.current.player.x = 0;
         if (gameState.current.player.x + gameState.current.player.width > 800) {
           gameState.current.player.x = 800 - gameState.current.player.width;
