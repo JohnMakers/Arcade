@@ -14,8 +14,8 @@ const PepeFall = ({ onExit }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   
-  // New state to handle the text delay so it doesn't clash with GameUI's 3-second countdown
-  const [showInstructions, setShowInstructions] = useState(false);
+  // Handles the auto-start countdown
+  const [countdownStatus, setCountdownStatus] = useState(3);
 
   // --- CONFIGURATION ---
   const CANVAS_WIDTH = 500;
@@ -27,16 +27,17 @@ const PepeFall = ({ onExit }) => {
   const BLOCK_SIZE = 50;
   
   const gameState = useRef({
-    player: { x: 225, y: 100, w: 40, h: 40, vx: 0, vy: 0, ammo: 8, invincible: 0 },
+    player: { x: 225, y: 50, w: 40, h: 40, vx: 0, vy: 0, ammo: 8, invincible: 0 },
     cameraY: 0,
     platforms: [],
     enemies: [],
     lasers: [],
     particles: [],
     dips: [], 
-    lastGenY: 200, 
+    lastGenY: 150, 
     keys: { left: false, right: false, shoot: false },
     score: 0,
+    isDead: false, // Prevents physics/scoring from updating post-death
     sprites: {},
     lastTime: 0
   });
@@ -59,20 +60,24 @@ const PepeFall = ({ onExit }) => {
     loadSprite('bg', ASSETS.FALL_BG);
   }, []);
 
-  // Delay for Instruction Text
+  // --- AUTO-START COUNTDOWN ---
   useEffect(() => {
-    if (!isPlaying && !gameOver) {
-        // Wait exactly 3 seconds (GameUI countdown length) before showing text
-        const timer = setTimeout(() => setShowInstructions(true), 3000);
-        return () => clearTimeout(timer);
-    } else {
-        setShowInstructions(false);
+    if (!gameOver && !isPlaying) {
+        if (countdownStatus > 0) {
+            const timer = setTimeout(() => setCountdownStatus(prev => prev - 1), 1000);
+            return () => clearTimeout(timer);
+        } else {
+            setIsPlaying(true); // Automatically start game when countdown hits 0
+        }
     }
-  }, [isPlaying, gameOver, resetKey]);
+  }, [countdownStatus, gameOver, isPlaying]);
 
   // Input Handling 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Block input if counting down or dead
+      if (!isPlaying || gameState.current.isDead) return; 
+      
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') gameState.current.keys.left = true;
       if (e.code === 'ArrowRight' || e.code === 'KeyD') gameState.current.keys.right = true;
       if (e.code === 'Space' || e.code === 'ArrowUp') {
@@ -89,11 +94,9 @@ const PepeFall = ({ onExit }) => {
 
     const handleTouch = (e) => {
       if (gameOver) return;
-      if (!isPlaying) {
-         triggerShoot(); // Allows mobile users to start the game
-         return;
-      }
-      e.preventDefault();
+      e.preventDefault(); // Always prevent default to stop scrolling
+      if (!isPlaying || gameState.current.isDead) return; // Block input during countdown
+      
       gameState.current.keys.left = false;
       gameState.current.keys.right = false;
       
@@ -132,10 +135,7 @@ const PepeFall = ({ onExit }) => {
 
   const triggerShoot = () => {
       const state = gameState.current;
-      if (!isPlaying || state.player.ammo <= 0) {
-          if (!isPlaying && !gameOver) setIsPlaying(true);
-          return;
-      }
+      if (!isPlaying || state.isDead || state.player.ammo <= 0) return;
 
       state.player.ammo -= 1;
       state.player.vy = -RECOIL; 
@@ -191,8 +191,12 @@ const PepeFall = ({ onExit }) => {
   };
 
   const die = async () => {
-      setGameOver(true);
       const state = gameState.current;
+      if (state.isDead) return; // Prevent multiple triggers
+      
+      state.isDead = true; // Instantly freezes physics and scoring
+      setGameOver(true);
+      
       if (username) {
         await supabase.from('leaderboards').insert([{
             game_id:'pepefall', username, score: state.score, address
@@ -207,18 +211,22 @@ const PepeFall = ({ onExit }) => {
     const ctx = canvas.getContext('2d');
     
     // Reset Logic
-    gameState.current.player = { x: 225, y: 100, w: 40, h: 40, vx: 0, vy: 0, ammo: 8, invincible: 0 };
+    gameState.current.player = { x: 225, y: 50, w: 40, h: 40, vx: 0, vy: 0, ammo: 8, invincible: 0 };
     gameState.current.cameraY = 0;
     gameState.current.platforms = [];
     gameState.current.enemies = [];
     gameState.current.lasers = [];
     gameState.current.dips = [];
     gameState.current.particles = [];
-    gameState.current.lastGenY = 300;
+    gameState.current.lastGenY = 150;
     gameState.current.score = 0;
+    gameState.current.isDead = false;
     gameState.current.lastTime = performance.now();
 
-    // Pre-generate the starting screen so assets load into view immediately
+    // Pre-insert a safe starting platform directly under the spawn point
+    gameState.current.platforms.push({ x: 150, y: 200, w: 200, h: 20, isSpike: false });
+    
+    // Pre-generate the starting screen
     generateLevel(0);
 
     let animationId;
@@ -228,8 +236,8 @@ const PepeFall = ({ onExit }) => {
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
-      // --- 1. PHYSICS & UPDATES (Only runs when actively playing) ---
-      if (isPlaying && !gameOver) {
+      // --- 1. PHYSICS & UPDATES (Only runs when actively playing and ALIVE) ---
+      if (isPlaying && !state.isDead) {
           const p = state.player;
           p.vy += GRAVITY * dt;
           if (p.vy > MAX_FALL_SPEED) p.vy = MAX_FALL_SPEED;
@@ -334,7 +342,7 @@ const PepeFall = ({ onExit }) => {
           generateLevel(state.cameraY);
       } // --- END PHYSICS BLOCK ---
 
-      // --- 2. RENDER (Always runs so you can see the test-mode assets before starting) ---
+      // --- 2. RENDER (Always runs so you can see the game behind the UI) ---
       if (state.sprites['bg']) {
           ctx.drawImage(state.sprites['bg'], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       } else {
@@ -415,7 +423,8 @@ const PepeFall = ({ onExit }) => {
             isPlaying={isPlaying} 
             onRestart={() => { 
                 setGameOver(false); 
-                setIsPlaying(true); 
+                setIsPlaying(false); // Resets to countdown phase
+                setCountdownStatus(3); // Resets local 3 second timer
                 setScore(0); 
                 setResetKey(prev => prev + 1); 
             }} 
@@ -428,16 +437,18 @@ const PepeFall = ({ onExit }) => {
             height={CANVAS_HEIGHT} 
             style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'crosshair' }} 
         />
-        {showInstructions && !isPlaying && !gameOver && (
+        
+        {/* INSTRUCTIONS: Moved to the bottom so they don't block the GameUI countdown numbers in the center */}
+        {!isPlaying && !gameOver && (
             <div style={{
-                position: 'absolute', top: '40%', width: '100%', textAlign: 'center', 
+                position: 'absolute', bottom: '15%', width: '100%', textAlign: 'center', 
                 pointerEvents: 'none', color: 'lime', textShadow: '2px 2px #000',
                 fontFamily: '"Press Start 2P"'
             }}>
                 MARKET CRASH!<br/><br/>
-                <span style={{fontSize: '0.6em', color: 'white'}}>
+                <span style={{fontSize: '0.6em', color: 'white', lineHeight: '1.5'}}>
                 Desktop: ARROWS to move, SPACE to shoot<br/>
-                Mobile: Tap Left/Right to move, Middle to shoot
+                Mobile: Tap L/R to move, Middle to shoot
                 </span>
             </div>
         )}
