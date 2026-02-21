@@ -52,9 +52,16 @@ const BagsGrowth = ({ onExit }) => {
     loadSprite('fud', ASSETS.BG_FUD);
   }, []);
 
-  // Input Handling (Keyboard & Touch)
+    // Input Handling (Keyboard & Touch)
   useEffect(() => {
-    const handleKeyDown = (e) => { gameState.current.keys[e.code] = true; };
+    const handleKeyDown = (e) => { 
+        gameState.current.keys[e.code] = true; 
+        
+        // Start game on Space, Enter, or moving if idle
+        if (!isPlaying && !gameOver && (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+            setIsPlaying(true);
+        }
+    };
     const handleKeyUp = (e) => { gameState.current.keys[e.code] = false; };
 
     // Mobile specific pointer tracking
@@ -71,6 +78,16 @@ const BagsGrowth = ({ onExit }) => {
       gameState.current.player.x = Math.max(0, Math.min(x - gameState.current.player.w / 2, CANVAS_WIDTH - gameState.current.player.w));
     };
 
+    // Ignition switch for touch/mouse
+    const handleStartClick = (e) => {
+        if (e.target.closest('button') || e.target.closest('.interactive')) return;
+        if (e.cancelable && e.type === 'touchstart') e.preventDefault();
+        
+        if (!isPlaying && !gameOver) {
+            setIsPlaying(true);
+        }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
@@ -78,6 +95,8 @@ const BagsGrowth = ({ onExit }) => {
     if (wrapper) {
       wrapper.addEventListener('touchmove', handlePointerMove, { passive: false });
       wrapper.addEventListener('mousemove', handlePointerMove);
+      wrapper.addEventListener('mousedown', handleStartClick);
+      wrapper.addEventListener('touchstart', handleStartClick, { passive: false });
     }
 
     return () => {
@@ -86,6 +105,8 @@ const BagsGrowth = ({ onExit }) => {
       if (wrapper) {
         wrapper.removeEventListener('touchmove', handlePointerMove);
         wrapper.removeEventListener('mousemove', handlePointerMove);
+        wrapper.removeEventListener('mousedown', handleStartClick);
+        wrapper.removeEventListener('touchstart', handleStartClick);
       }
     };
   }, [isPlaying, gameOver]);
@@ -344,13 +365,14 @@ const BagsGrowth = ({ onExit }) => {
         />
         {!isPlaying && !gameOver && (
             <div style={{
-                position: 'absolute', top: '40%', width: '100%', textAlign: 'center', 
+                position: 'absolute', top: '35%', width: '100%', textAlign: 'center', 
                 pointerEvents: 'none', color: 'lime', textShadow: '2px 2px #000',
                 fontFamily: '"Press Start 2P"'
             }}>
                 CATCH THE GEMS<br/><br/>
                 AVOID THE FUD<br/><br/>
-                WATCH THE WIND!
+                WATCH THE WIND!<br/><br/><br/>
+                <span className="pulse" style={{color: 'yellow', fontSize: '0.9rem'}}>TAP OR PRESS SPACE TO START</span>
             </div>
         )}
     </div>
