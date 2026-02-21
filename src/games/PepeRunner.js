@@ -241,9 +241,13 @@ const PepeRunner = ({ onExit }) => {
       const bgSprite = state.sprites['bg'];
       
       if (bgSprite && !state.isMoonMode) {
-        // STEADY BACKGROUND LOGIC
-        // Draw the image exactly once, covering the entire canvas
-        ctx.drawImage(bgSprite, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        // SCROLLING BACKGROUND LOGIC
+        // We use modulo to loop the image seamlessly as you travel
+        const bgOffset = state.distanceTraveled % CANVAS_HEIGHT;
+        
+        // Draw the image twice to create a seamless looping effect
+        ctx.drawImage(bgSprite, 0, bgOffset - CANVAS_HEIGHT, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.drawImage(bgSprite, 0, bgOffset, CANVAS_WIDTH, CANVAS_HEIGHT);
       } else {
         // Fallback or Moon Mode background
         ctx.fillStyle = state.isMoonMode ? '#1a0033' : '#0a192f';
