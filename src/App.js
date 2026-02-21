@@ -11,6 +11,7 @@ import NormieInvaders from './games/NormieInvaders';
 import FudBreaker from './games/FudBreaker';
 import PepeFall from './games/PepeFall';
 import PepeRunner from './games/PepeRunner';
+import CoinSlicer from './games/CoinSlicer'; 
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
@@ -27,6 +28,7 @@ function App() {
       case 'fudbreaker': return <FudBreaker onExit={() => setActiveGame(null)} />;
       case 'pepefall': return <PepeFall onExit={() => setActiveGame(null)} />;
       case 'peperunner': return <PepeRunner onExit={() => setActiveGame(null)} />;
+      case 'coinslicer': return <CoinSlicer onExit={() => setActiveGame(null)} />;
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };

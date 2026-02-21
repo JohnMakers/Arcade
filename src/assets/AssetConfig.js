@@ -88,6 +88,15 @@ export const ASSETS = {
   RUNNER_CANDLE: "assets/pr_face.png", // Red Candle obstacle
   RUNNER_COIN: "assets/pr_moon.png",     // 100x Moon coin
   RUNNER_BG: "assets/pr_bg.png",         // Optional background
+
+  // --- COIN SLICER ---
+  CS_BG: "https://images.unsplash.com/photo-1639762681485-074b7f4tc4c0?auto=format&fit=crop&w=800&q=80",
+  CS_BTC: "https://cryptologos.cc/logos/bitcoin-btc-logo.png",
+  CS_ETH: "https://cryptologos.cc/logos/ethereum-eth-logo.png",
+  CS_SOL: "https://cryptologos.cc/logos/solana-sol-logo.png",
+  CS_BOMB: "https://em-content.zobj.net/source/apple/354/bomb_1f4a3.png", // Rug pull
+  CS_PEPE: "https://upload.wikimedia.org/wikipedia/en/4/45/Pepe_the_Frog.jpg", // Rare Pepe
+
 };
 
 
