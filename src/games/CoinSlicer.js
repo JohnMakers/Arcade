@@ -14,8 +14,6 @@ const CoinSlicer = ({ onExit }) => {
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-  
-  // NEW: State to sync with GameUI's 3-second countdown
   const [canStart, setCanStart] = useState(false);
 
   const CANVAS_WIDTH = window.innerWidth > 800 ? 800 : window.innerWidth;
@@ -33,8 +31,8 @@ const CoinSlicer = ({ onExit }) => {
     sprites: {},
     lastTime: 0,
     timeSinceLastSpawn: 0,
-    spawnRate: 1500,
-    gravity: 0.2,
+    spawnRate: 1000,
+    gravity: 0.4,
     lastSpawnX: CANVAS_WIDTH / 2
   });
 
@@ -90,13 +88,11 @@ const CoinSlicer = ({ onExit }) => {
     const handleStart = (e) => {
       e.preventDefault();
       if (!isPlaying && !gameOver) {
-        // FIX: Prevent clicking during countdown
         if (!canStart) return; 
         
         setIsPlaying(true);
-        // FIX: Force immediate spawn to kill the black screen delay
         spawnItem(gameState.current);
-        spawnItem(gameState.current); // Toss two coins for an immediate fun start
+        spawnItem(gameState.current); 
         gameState.current.timeSinceLastSpawn = 0;
       }
       gameState.current.isSlicing = true;
@@ -133,12 +129,12 @@ const CoinSlicer = ({ onExit }) => {
       canvas.removeEventListener('touchmove', handleMove);
       window.removeEventListener('touchend', handleEnd);
     };
-  }, [isPlaying, gameOver, CANVAS_WIDTH, canStart]); // ADDED canStart as dependency
+  }, [isPlaying, gameOver, CANVAS_WIDTH, canStart]); 
 
   // Core Game Loop
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !isPlaying || gameOver) return;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
     let animationId;
@@ -146,17 +142,10 @@ const CoinSlicer = ({ onExit }) => {
 
     const loop = (time) => {
       const state = gameState.current;
-      const dt = Math.min((time - state.lastTime), 50); 
+      const dt = time - state.lastTime > 0 ? Math.min((time - state.lastTime), 50) : 16; 
       state.lastTime = time;
 
-      state.gravity = 0.3 + (state.score * 0.005);
-      state.spawnRate = Math.max(400, 1500 - (state.score * 15));
-
-      if (state.multiplierTimer > 0) {
-        state.multiplierTimer -= dt;
-        if (state.multiplierTimer <= 0) state.multiplier = 1;
-      }
-
+      // Unconditional Draw: Background always renders
       ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       if (state.sprites['bg']) {
@@ -165,21 +154,34 @@ const CoinSlicer = ({ onExit }) => {
         ctx.globalAlpha = 1.0;
       }
 
-      state.timeSinceLastSpawn += dt;
-      if (state.timeSinceLastSpawn > state.spawnRate) {
-        state.timeSinceLastSpawn = 0;
-        spawnItem(state);
+      // Only update physics and spawn if actively playing
+      if (isPlaying && !gameOver) {
+        // AGGRESSIVE SCALING
+        state.gravity = 0.4 + (state.score * 0.015);
+        state.spawnRate = Math.max(300, 1000 - (state.score * 25)); // Spawns get insanely fast
+
+        if (state.multiplierTimer > 0) {
+          state.multiplierTimer -= dt;
+          if (state.multiplierTimer <= 0) state.multiplier = 1;
+        }
+
+        state.timeSinceLastSpawn += dt;
+        if (state.timeSinceLastSpawn > state.spawnRate) {
+          state.timeSinceLastSpawn = 0;
+          spawnItem(state);
+        }
+
+        checkSlices(state);
+
+        if (state.lives <= 0 && !gameOver) {
+          triggerGameOver(state);
+        }
       }
 
-      updateAndDrawItems(ctx, state, dt);
-      updateAndDrawParticles(ctx, state, dt);
-      checkSlices(state);
+      // Items and particles draw unconditionally so they freeze beautifully on Game Over
+      updateAndDrawItems(ctx, state, isPlaying, gameOver);
+      updateAndDrawParticles(ctx, state, dt, isPlaying, gameOver);
       drawBlade(ctx, state);
-
-      if (state.lives <= 0 && !gameOver) {
-        triggerGameOver(state);
-        return;
-      }
 
       animationId = requestAnimationFrame(loop);
     };
@@ -189,7 +191,8 @@ const CoinSlicer = ({ onExit }) => {
   }, [isPlaying, gameOver, resetKey, CANVAS_WIDTH]);
 
   const spawnItem = (state) => {
-    const isBomb = Math.random() < Math.min(0.4, 0.1 + (state.score * 0.005));
+    // Increased Bomb frequency at lower scores
+    const isBomb = Math.random() < Math.min(0.5, 0.15 + (state.score * 0.01));
     const isRarePepe = !isBomb && Math.random() < 0.05;
     
     const types = ['btc', 'eth', 'sol'];
@@ -201,29 +204,31 @@ const CoinSlicer = ({ onExit }) => {
     } while (Math.abs(x - state.lastSpawnX) < 100);
     state.lastSpawnX = x;
 
-    // FIX: Calculate center offset to force coins to arc inwards instead of flying off-screen
     const centerOffset = (CANVAS_WIDTH / 2) - x;
-    const arcVelocity = (centerOffset / CANVAS_WIDTH) * 8; 
+    const arcVelocity = (centerOffset / CANVAS_WIDTH) * 12; // Wider arc
 
     state.items.push({
       x: x,
       y: CANVAS_HEIGHT + 50,
-      vx: arcVelocity + (Math.random() - 0.5) * 2, // Now strictly controlled
-      vy: -15 - Math.random() * 5, // Tighter vertical pop range
+      vx: arcVelocity + (Math.random() - 0.5) * 4, 
+      vy: -16 - Math.random() * 7, // Faster, higher pop
       radius: 40,
       type: type,
       rotation: 0,
-      rotSpeed: (Math.random() - 0.5) * 0.2
+      rotSpeed: (Math.random() - 0.5) * 0.3
     });
   };
 
-  const updateAndDrawItems = (ctx, state, dt) => {
+  const updateAndDrawItems = (ctx, state, isPlaying, gameOver) => {
     for (let i = state.items.length - 1; i >= 0; i--) {
       let item = state.items[i];
-      item.x += item.vx;
-      item.vy += state.gravity;
-      item.y += item.vy;
-      item.rotation += item.rotSpeed;
+      
+      if (isPlaying && !gameOver) {
+        item.x += item.vx;
+        item.vy += state.gravity;
+        item.y += item.vy;
+        item.rotation += item.rotSpeed;
+      }
 
       ctx.save();
       ctx.translate(item.x, item.y);
@@ -239,7 +244,7 @@ const CoinSlicer = ({ onExit }) => {
       }
       ctx.restore();
 
-      if (item.y > CANVAS_HEIGHT + 100 && item.vy > 0) {
+      if (isPlaying && !gameOver && item.y > CANVAS_HEIGHT + 100 && item.vy > 0) {
         if (item.type !== 'bomb' && item.type !== 'pepe') {
           state.lives -= 1;
           setLives(state.lives);
@@ -249,13 +254,16 @@ const CoinSlicer = ({ onExit }) => {
     }
   };
 
-  const updateAndDrawParticles = (ctx, state, dt) => {
+  const updateAndDrawParticles = (ctx, state, dt, isPlaying, gameOver) => {
     for (let i = state.particles.length - 1; i >= 0; i--) {
       let p = state.particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.2; 
-      p.life -= dt;
+      
+      if (isPlaying && !gameOver) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.3; 
+        p.life -= dt;
+      }
 
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
       ctx.fillStyle = p.color;
@@ -294,20 +302,21 @@ const CoinSlicer = ({ onExit }) => {
     if (item.type === 'pepe') {
       state.multiplier = 2;
       state.multiplierTimer = 5000; 
-      spawnSplatter(state, item.x, item.y, '#00ff00', 40); 
+      state.score += 5; // Instant reward for hitting the rare drop
+      spawnSplatter(state, item.x, item.y, '#00ff00', 50); 
     } else {
-      spawnSplatter(state, item.x, item.y, '#ffd700', 15); 
+      spawnSplatter(state, item.x, item.y, '#ffd700', 20); 
       state.score += 1 * state.multiplier;
-      setScore(state.score);
     }
+    setScore(state.score);
   };
 
   const spawnSplatter = (state, x, y, color, count) => {
     for(let i=0; i<count; i++) {
       state.particles.push({
         x: x, y: y,
-        vx: (Math.random() - 0.5) * 15,
-        vy: (Math.random() - 0.5) * 15,
+        vx: (Math.random() - 0.5) * 20,
+        vy: (Math.random() - 0.5) * 20,
         life: 500 + Math.random() * 500,
         maxLife: 1000,
         size: 3 + Math.random() * 6,
@@ -325,10 +334,10 @@ const CoinSlicer = ({ onExit }) => {
     }
     
     ctx.strokeStyle = state.multiplier > 1 ? '#00ff00' : '#ffffff';
-    ctx.lineWidth = state.multiplier > 1 ? 8 : 4;
+    ctx.lineWidth = state.multiplier > 1 ? 10 : 5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 15;
     ctx.shadowColor = state.multiplier > 1 ? '#00ff00' : '#00ffff';
     ctx.stroke();
     ctx.shadowBlur = 0; 
@@ -358,7 +367,7 @@ const CoinSlicer = ({ onExit }) => {
     gameState.current.items = [];
     gameState.current.particles = [];
     gameState.current.multiplier = 1;
-    gameState.current.gravity = 0.2;
+    gameState.current.gravity = 0.4; // Base gravity reset
     setResetKey(prev => prev + 1); 
   };
 
@@ -393,7 +402,6 @@ const CoinSlicer = ({ onExit }) => {
             style={{ width: '100%', maxWidth: `${CANVAS_WIDTH}px`, height: 'auto', display: 'block', cursor: 'crosshair', touchAction: 'none' }} 
         />
         
-        {/* FIX: Only show text if canStart is true (meaning countdown is over) */}
         {!isPlaying && !gameOver && canStart && (
             <div style={{
                 position: 'absolute', top: '40%', width: '100%', textAlign: 'center', 
