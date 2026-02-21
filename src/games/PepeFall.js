@@ -34,10 +34,10 @@ const PepeFall = ({ onExit }) => {
     lasers: [],
     particles: [],
     dips: [], 
-    lastGenY: 150, 
+    lastGenY: 400, // Pushed generation down to create a safe start zone
     keys: { left: false, right: false, shoot: false },
     score: 0,
-    isDead: false, // Prevents physics/scoring from updating post-death
+    isDead: false, 
     sprites: {},
     lastTime: 0
   });
@@ -67,7 +67,7 @@ const PepeFall = ({ onExit }) => {
             const timer = setTimeout(() => setCountdownStatus(prev => prev - 1), 1000);
             return () => clearTimeout(timer);
         } else {
-            setIsPlaying(true); // Automatically start game when countdown hits 0
+            setIsPlaying(true); 
         }
     }
   }, [countdownStatus, gameOver, isPlaying]);
@@ -75,7 +75,6 @@ const PepeFall = ({ onExit }) => {
   // Input Handling 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Block input if counting down or dead
       if (!isPlaying || gameState.current.isDead) return; 
       
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') gameState.current.keys.left = true;
@@ -94,8 +93,8 @@ const PepeFall = ({ onExit }) => {
 
     const handleTouch = (e) => {
       if (gameOver) return;
-      e.preventDefault(); // Always prevent default to stop scrolling
-      if (!isPlaying || gameState.current.isDead) return; // Block input during countdown
+      e.preventDefault(); 
+      if (!isPlaying || gameState.current.isDead) return; 
       
       gameState.current.keys.left = false;
       gameState.current.keys.right = false;
@@ -192,9 +191,9 @@ const PepeFall = ({ onExit }) => {
 
   const die = async () => {
       const state = gameState.current;
-      if (state.isDead) return; // Prevent multiple triggers
+      if (state.isDead) return; 
       
-      state.isDead = true; // Instantly freezes physics and scoring
+      state.isDead = true; 
       setGameOver(true);
       
       if (username) {
@@ -218,13 +217,13 @@ const PepeFall = ({ onExit }) => {
     gameState.current.lasers = [];
     gameState.current.dips = [];
     gameState.current.particles = [];
-    gameState.current.lastGenY = 150;
+    gameState.current.lastGenY = 400; // Pushed down to guarantee safe spawn area
     gameState.current.score = 0;
     gameState.current.isDead = false;
     gameState.current.lastTime = performance.now();
 
-    // Pre-insert a safe starting platform directly under the spawn point
-    gameState.current.platforms.push({ x: 150, y: 200, w: 200, h: 20, isSpike: false });
+    // The Safe Start Zone Platform
+    gameState.current.platforms.push({ x: 150, y: 250, w: 200, h: 20, isSpike: false });
     
     // Pre-generate the starting screen
     generateLevel(0);
@@ -236,7 +235,7 @@ const PepeFall = ({ onExit }) => {
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
-      // --- 1. PHYSICS & UPDATES (Only runs when actively playing and ALIVE) ---
+      // --- 1. PHYSICS & UPDATES ---
       if (isPlaying && !state.isDead) {
           const p = state.player;
           p.vy += GRAVITY * dt;
@@ -302,8 +301,8 @@ const PepeFall = ({ onExit }) => {
               state.platforms.forEach(plat => {
                   if (checkCollision(l, plat)) {
                       l.dead = true;
-                      if (!plat.isSpike) plat.markedForDeletion = true; 
-                      spawnDebris(l.x, l.y, '#00ffff');
+                      plat.markedForDeletion = true; // Now destroys normal blocks AND red spikes
+                      spawnDebris(l.x, l.y, plat.isSpike ? 'red' : 'lime'); 
                   }
               });
 
@@ -342,7 +341,7 @@ const PepeFall = ({ onExit }) => {
           generateLevel(state.cameraY);
       } // --- END PHYSICS BLOCK ---
 
-      // --- 2. RENDER (Always runs so you can see the game behind the UI) ---
+      // --- 2. RENDER ---
       if (state.sprites['bg']) {
           ctx.drawImage(state.sprites['bg'], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       } else {
@@ -423,8 +422,8 @@ const PepeFall = ({ onExit }) => {
             isPlaying={isPlaying} 
             onRestart={() => { 
                 setGameOver(false); 
-                setIsPlaying(false); // Resets to countdown phase
-                setCountdownStatus(3); // Resets local 3 second timer
+                setIsPlaying(false); 
+                setCountdownStatus(3); 
                 setScore(0); 
                 setResetKey(prev => prev + 1); 
             }} 
@@ -438,7 +437,6 @@ const PepeFall = ({ onExit }) => {
             style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'crosshair' }} 
         />
         
-        {/* INSTRUCTIONS: Moved to the bottom so they don't block the GameUI countdown numbers in the center */}
         {!isPlaying && !gameOver && (
             <div style={{
                 position: 'absolute', bottom: '15%', width: '100%', textAlign: 'center', 
