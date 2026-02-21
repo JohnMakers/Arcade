@@ -97,6 +97,14 @@ export const ASSETS = {
   CS_BOMB: "assets/cs_fud.png", // Rug pull
   CS_PEPE: "assets/cs_pepe.png", // Rare Pepe
 
+  // --- BAGS GROWTH ---
+  BG_BG: "assets/bg_bg.png", // Optional background
+  BG_HERO: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Pepe_the_Frog.png/120px-Pepe_the_Frog.png", 
+  BG_CHAD: "https://upload.wikimedia.org/wikipedia/en/thumb/5/58/GigaChad.jpg/150px-GigaChad.jpg", 
+  BG_GEM: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Twemoji_1f48e.svg/100px-Twemoji_1f48e.svg.png", 
+  BG_ALPHA: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Twemoji_1f525.svg/100px-Twemoji_1f525.svg.png", // Fire/Alpha
+  BG_HEAVY: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Twemoji_1f5ff.svg/100px-Twemoji_1f5ff.svg.png", // Moai/Heavy bag
+  BG_FUD: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Twemoji_1f4c9.svg/100px-Twemoji_1f4c9.svg.png", // Red chart down
 };
 
 

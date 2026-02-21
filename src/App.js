@@ -12,6 +12,7 @@ import FudBreaker from './games/FudBreaker';
 import PepeFall from './games/PepeFall';
 import PepeRunner from './games/PepeRunner';
 import CoinSlicer from './games/CoinSlicer'; 
+import BagsGrowth from './games/BagsGrowth';
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
@@ -29,6 +30,7 @@ function App() {
       case 'pepefall': return <PepeFall onExit={() => setActiveGame(null)} />;
       case 'peperunner': return <PepeRunner onExit={() => setActiveGame(null)} />;
       case 'coinslicer': return <CoinSlicer onExit={() => setActiveGame(null)} />;
+      case 'bagsgrowth': return <BagsGrowth onExit={() => setActiveGame(null)} />;
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };
