@@ -14,11 +14,13 @@ const CoinSlicer = ({ onExit }) => {
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+  
+  // NEW: State to sync with GameUI's 3-second countdown
+  const [canStart, setCanStart] = useState(false);
 
   const CANVAS_WIDTH = window.innerWidth > 800 ? 800 : window.innerWidth;
   const CANVAS_HEIGHT = 800;
 
-  // Mutable Game State to bypass React rendering lag for 60FPS
   const gameState = useRef({
     items: [],
     particles: [],
@@ -31,10 +33,19 @@ const CoinSlicer = ({ onExit }) => {
     sprites: {},
     lastTime: 0,
     timeSinceLastSpawn: 0,
-    spawnRate: 1500, // ms
+    spawnRate: 1500,
     gravity: 0.2,
     lastSpawnX: CANVAS_WIDTH / 2
   });
+
+  // Sync the local start lock with the GameUI 3-second countdown
+  useEffect(() => {
+    if (!isPlaying && !gameOver) {
+      setCanStart(false);
+      const timer = setTimeout(() => setCanStart(true), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isPlaying, gameOver]);
 
   // Load Assets
   useEffect(() => {
@@ -53,7 +64,6 @@ const CoinSlicer = ({ onExit }) => {
     loadSprite('pepe', ASSETS.CS_PEPE);
   }, []);
 
-  // Blade collision math (Line-Circle Intersection)
   const distToSegmentSquared = (p, v, w) => {
     let l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
     if (l2 === 0) return (p.x - v.x) ** 2 + (p.y - v.y) ** 2;
@@ -62,7 +72,7 @@ const CoinSlicer = ({ onExit }) => {
     return (p.x - (v.x + t * (w.x - v.x))) ** 2 + (p.y - (v.y + t * (w.y - v.y))) ** 2;
   };
 
-  // Input Handling for touch/mouse
+  // Input Handling
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -79,7 +89,16 @@ const CoinSlicer = ({ onExit }) => {
 
     const handleStart = (e) => {
       e.preventDefault();
-      if (!isPlaying && !gameOver) setIsPlaying(true);
+      if (!isPlaying && !gameOver) {
+        // FIX: Prevent clicking during countdown
+        if (!canStart) return; 
+        
+        setIsPlaying(true);
+        // FIX: Force immediate spawn to kill the black screen delay
+        spawnItem(gameState.current);
+        spawnItem(gameState.current); // Toss two coins for an immediate fun start
+        gameState.current.timeSinceLastSpawn = 0;
+      }
       gameState.current.isSlicing = true;
       gameState.current.blade = [getPos(e)];
     };
@@ -89,7 +108,7 @@ const CoinSlicer = ({ onExit }) => {
       if (!gameState.current.isSlicing) return;
       const pos = getPos(e);
       gameState.current.blade.push(pos);
-      if (gameState.current.blade.length > 10) gameState.current.blade.shift(); // Keep tail short
+      if (gameState.current.blade.length > 10) gameState.current.blade.shift();
     };
 
     const handleEnd = (e) => {
@@ -114,7 +133,7 @@ const CoinSlicer = ({ onExit }) => {
       canvas.removeEventListener('touchmove', handleMove);
       window.removeEventListener('touchend', handleEnd);
     };
-  }, [isPlaying, gameOver, CANVAS_WIDTH]);
+  }, [isPlaying, gameOver, CANVAS_WIDTH, canStart]); // ADDED canStart as dependency
 
   // Core Game Loop
   useEffect(() => {
@@ -127,20 +146,17 @@ const CoinSlicer = ({ onExit }) => {
 
     const loop = (time) => {
       const state = gameState.current;
-      const dt = Math.min((time - state.lastTime), 50); // cap dt
+      const dt = Math.min((time - state.lastTime), 50); 
       state.lastTime = time;
 
-      // Scaling Difficulty
       state.gravity = 0.3 + (state.score * 0.005);
       state.spawnRate = Math.max(400, 1500 - (state.score * 15));
 
-      // Multiplier Timer Decay
       if (state.multiplierTimer > 0) {
         state.multiplierTimer -= dt;
         if (state.multiplierTimer <= 0) state.multiplier = 1;
       }
 
-      // Clear & Draw BG
       ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       if (state.sprites['bg']) {
@@ -149,20 +165,17 @@ const CoinSlicer = ({ onExit }) => {
         ctx.globalAlpha = 1.0;
       }
 
-      // Spawning Logic
       state.timeSinceLastSpawn += dt;
       if (state.timeSinceLastSpawn > state.spawnRate) {
         state.timeSinceLastSpawn = 0;
         spawnItem(state);
       }
 
-      // Physics & Rendering
       updateAndDrawItems(ctx, state, dt);
       updateAndDrawParticles(ctx, state, dt);
       checkSlices(state);
       drawBlade(ctx, state);
 
-      // Check Game Over via Lives
       if (state.lives <= 0 && !gameOver) {
         triggerGameOver(state);
         return;
@@ -182,18 +195,21 @@ const CoinSlicer = ({ onExit }) => {
     const types = ['btc', 'eth', 'sol'];
     const type = isBomb ? 'bomb' : isRarePepe ? 'pepe' : types[Math.floor(Math.random() * types.length)];
     
-    // Anti-Overlap logic
     let x;
     do {
       x = 50 + Math.random() * (CANVAS_WIDTH - 100);
     } while (Math.abs(x - state.lastSpawnX) < 100);
     state.lastSpawnX = x;
 
+    // FIX: Calculate center offset to force coins to arc inwards instead of flying off-screen
+    const centerOffset = (CANVAS_WIDTH / 2) - x;
+    const arcVelocity = (centerOffset / CANVAS_WIDTH) * 8; 
+
     state.items.push({
       x: x,
       y: CANVAS_HEIGHT + 50,
-      vx: (Math.random() - 0.5) * 6,
-      vy: -14 - Math.random() * 6,
+      vx: arcVelocity + (Math.random() - 0.5) * 2, // Now strictly controlled
+      vy: -15 - Math.random() * 5, // Tighter vertical pop range
       radius: 40,
       type: type,
       rotation: 0,
@@ -209,7 +225,6 @@ const CoinSlicer = ({ onExit }) => {
       item.y += item.vy;
       item.rotation += item.rotSpeed;
 
-      // Draw
       ctx.save();
       ctx.translate(item.x, item.y);
       ctx.rotate(item.rotation);
@@ -224,10 +239,8 @@ const CoinSlicer = ({ onExit }) => {
       }
       ctx.restore();
 
-      // Remove off-screen items
       if (item.y > CANVAS_HEIGHT + 100 && item.vy > 0) {
         if (item.type !== 'bomb' && item.type !== 'pepe') {
-          // Dropped a good coin
           state.lives -= 1;
           setLives(state.lives);
         }
@@ -241,7 +254,7 @@ const CoinSlicer = ({ onExit }) => {
       let p = state.particles[i];
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.2; // gravity
+      p.vy += 0.2; 
       p.life -= dt;
 
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
@@ -262,8 +275,6 @@ const CoinSlicer = ({ onExit }) => {
 
     for (let i = state.items.length - 1; i >= 0; i--) {
       let item = state.items[i];
-      
-      // Math: Check if distance from item center to blade segment is less than radius
       const distSq = distToSegmentSquared({x: item.x, y: item.y}, p1, p2);
       
       if (distSq < item.radius * item.radius) {
@@ -282,10 +293,10 @@ const CoinSlicer = ({ onExit }) => {
 
     if (item.type === 'pepe') {
       state.multiplier = 2;
-      state.multiplierTimer = 5000; // 5 seconds of 2x points
-      spawnSplatter(state, item.x, item.y, '#00ff00', 40); // Meme juice
+      state.multiplierTimer = 5000; 
+      spawnSplatter(state, item.x, item.y, '#00ff00', 40); 
     } else {
-      spawnSplatter(state, item.x, item.y, '#ffd700', 15); // Gold dust
+      spawnSplatter(state, item.x, item.y, '#ffd700', 15); 
       state.score += 1 * state.multiplier;
       setScore(state.score);
     }
@@ -320,7 +331,7 @@ const CoinSlicer = ({ onExit }) => {
     ctx.shadowBlur = 10;
     ctx.shadowColor = state.multiplier > 1 ? '#00ff00' : '#00ffff';
     ctx.stroke();
-    ctx.shadowBlur = 0; // reset
+    ctx.shadowBlur = 0; 
   };
 
   const triggerGameOver = async (state) => {
@@ -362,7 +373,6 @@ const CoinSlicer = ({ onExit }) => {
             gameId="coinslicer" 
         />
         
-        {/* LIVES & MULTIPLIER HUD */}
         {isPlaying && !gameOver && (
           <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 10, textAlign: 'right' }}>
             <div style={{ color: 'red', fontSize: '1.5rem', textShadow: '2px 2px #000' }}>
@@ -383,7 +393,8 @@ const CoinSlicer = ({ onExit }) => {
             style={{ width: '100%', maxWidth: `${CANVAS_WIDTH}px`, height: 'auto', display: 'block', cursor: 'crosshair', touchAction: 'none' }} 
         />
         
-        {!isPlaying && !gameOver && (
+        {/* FIX: Only show text if canStart is true (meaning countdown is over) */}
+        {!isPlaying && !gameOver && canStart && (
             <div style={{
                 position: 'absolute', top: '40%', width: '100%', textAlign: 'center', 
                 pointerEvents: 'none', color: '#00ffff', textShadow: '2px 2px #000',
