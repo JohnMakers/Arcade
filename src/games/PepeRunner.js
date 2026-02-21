@@ -63,7 +63,8 @@ const PepeRunner = ({ onExit }) => {
       img.crossOrigin = "Anonymous";
       img.onload = () => { gameState.current.sprites[key] = img; };
     };
-
+    
+    loadSprite('bg', ASSETS.RUNNER_BG);
     loadSprite('hero', ASSETS.RUNNER_HERO || 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/SNice.svg/120px-SNice.svg.png');
     loadSprite('sec', ASSETS.RUNNER_SEC || 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Red_x.svg/120px-Red_x.svg.png');
     loadSprite('candle', ASSETS.RUNNER_CANDLE || 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Error.svg/120px-Error.svg.png');
