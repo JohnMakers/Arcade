@@ -10,6 +10,7 @@ import PepeStack from './games/PepeStack';
 import NormieInvaders from './games/NormieInvaders';
 import FudBreaker from './games/FudBreaker';
 import PepeFall from './games/PepeFall';
+import PepeRunner from './games/PepeRunner';
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
@@ -25,6 +26,7 @@ function App() {
       case 'normies': return <NormieInvaders onExit={() => setActiveGame(null)} />;
       case 'fudbreaker': return <FudBreaker onExit={() => setActiveGame(null)} />;
       case 'pepefall': return <PepeFall onExit={() => setActiveGame(null)} />;
+      case 'peperunner': return <PepeRunner onExit={() => setActiveGame(null)} />;
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };

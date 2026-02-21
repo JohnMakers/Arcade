@@ -80,6 +80,14 @@ export const ASSETS = {
   FALL_BEAR: "assets/pf_bear.png",
   FALL_DIP: "assets/pf_coin.png", 
   FALL_BG: "assets/pf_bg.png",
+
+
+  // --- PEPE RUNNER ---
+  RUNNER_HERO: "assets/pr_hero.png",     // Pepe riding a rocket
+  RUNNER_SEC: "assets/pr_sec.png",       // SEC Van obstacle
+  RUNNER_CANDLE: "assets/pr_candle.png", // Red Candle obstacle
+  RUNNER_COIN: "assets/pr_coin.png",     // 100x Moon coin
+  RUNNER_BG: "assets/pr_bg.png",         // Optional background
 };
 
 
