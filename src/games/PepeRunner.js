@@ -13,7 +13,7 @@ const PepeRunner = ({ onExit }) => {
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-  const [countdownFinished, setCountdownFinished] = useState(false); // NEW: Tracks the 3s UI countdown
+  const [countdownFinished, setCountdownFinished] = useState(false);
 
   // --- CONFIGURATION ---
   const CANVAS_WIDTH = 500;
@@ -21,8 +21,9 @@ const PepeRunner = ({ onExit }) => {
   const LANES = [80, 250, 420];
   const HERO_SIZE = 60;
   const OBSTACLE_SIZE = 60;
+  const HITBOX_MARGIN = 15; // Shave 15px off all sides for tighter, fairer collisions
   const INITIAL_SPEED = 6;
-  const MAX_SPEED = 20;
+  const MAX_SPEED = 24; // Upped slightly to accommodate the smooth scaling
   const MOON_METER_MAX = 10;
 
   const gameState = useRef({
@@ -30,6 +31,7 @@ const PepeRunner = ({ onExit }) => {
     playerX: LANES[1], 
     speed: INITIAL_SPEED,
     score: 0,
+    lastReportedScore: 0, // Used to smartly update React UI
     moonMeter: 0,
     isMoonMode: false,
     moonTimer: 0,
@@ -39,6 +41,7 @@ const PepeRunner = ({ onExit }) => {
     lastTime: 0,
     distanceTraveled: 0,
     nextSpawnDist: 300,
+    isDead: false // Prevents duplicate death triggers
   });
 
   // --- WAIT FOR COUNTDOWN ---
@@ -47,7 +50,7 @@ const PepeRunner = ({ onExit }) => {
       setCountdownFinished(false);
       const timer = setTimeout(() => {
         setCountdownFinished(true);
-      }, 3000); // Matches the 3-second countdown in GameUI
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [isPlaying, gameOver, resetKey]);
@@ -80,8 +83,8 @@ const PepeRunner = ({ onExit }) => {
     };
 
     const movePlayer = (direction) => {
-      if (attemptStart()) return; // Start game instead of moving if just starting
-      if (!isPlaying || gameOver) return;
+      if (attemptStart()) return;
+      if (!isPlaying || gameOver || gameState.current.isDead) return;
       
       const state = gameState.current;
       if (direction === 'left' && state.playerLane > 0) state.playerLane -= 1;
@@ -103,7 +106,7 @@ const PepeRunner = ({ onExit }) => {
 
     const handleMouseClick = (e) => {
       if (attemptStart()) return;
-      if (!isPlaying || gameOver) return;
+      if (!isPlaying || gameOver || gameState.current.isDead) return;
       
       const wrapper = containerRef.current;
       if (!wrapper) return;
@@ -140,12 +143,12 @@ const PepeRunner = ({ onExit }) => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // Reset state on remount/restart
+    // Reset State
     gameState.current = {
       ...gameState.current,
       playerLane: 1, playerX: LANES[1], speed: INITIAL_SPEED,
-      score: 0, moonMeter: 0, isMoonMode: false, moonTimer: 0,
-      entities: [], particles: [], distanceTraveled: 0, nextSpawnDist: 300
+      score: 0, lastReportedScore: 0, moonMeter: 0, isMoonMode: false, moonTimer: 0,
+      entities: [], particles: [], distanceTraveled: 0, nextSpawnDist: 300, isDead: false
     };
     gameState.current.lastTime = performance.now();
     let animationId;
@@ -156,19 +159,19 @@ const PepeRunner = ({ onExit }) => {
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
-      // --- 1. ENGINE LOGIC (Only runs if playing) ---
-      if (isPlaying && !gameOver) {
+      // --- 1. ENGINE LOGIC ---
+      if (isPlaying && !gameOver && !state.isDead) {
         state.distanceTraveled += state.speed * dt;
-        if (state.score > 0 && state.score % 1000 === 0) {
-          state.speed = Math.min(state.speed + 0.5, MAX_SPEED);
-        }
+        
+        // PROGRESSIVE SPEED: Smoothly and slowly increase speed over time
+        state.speed = Math.min(state.speed + 0.0015 * dt, MAX_SPEED);
 
         const targetX = LANES[state.playerLane];
         state.playerX += (targetX - state.playerX) * 0.3 * dt;
 
         if (state.distanceTraveled > state.nextSpawnDist) {
           spawnRow(state);
-          const gap = Math.max(250, 450 - (state.speed * 10)); 
+          const gap = Math.max(200, 450 - (state.speed * 12)); 
           state.nextSpawnDist = state.distanceTraveled + gap;
         }
 
@@ -180,18 +183,25 @@ const PepeRunner = ({ onExit }) => {
           }
         }
 
-        const playerRect = { x: state.playerX - HERO_SIZE/2, y: CANVAS_HEIGHT - 150, w: HERO_SIZE, h: HERO_SIZE };
+        // Tighter Player Hitbox
+        const pLeft = state.playerX - HERO_SIZE/2 + HITBOX_MARGIN;
+        const pRight = state.playerX + HERO_SIZE/2 - HITBOX_MARGIN;
+        const pTop = (CANVAS_HEIGHT - 150) - HERO_SIZE/2 + HITBOX_MARGIN;
+        const pBottom = (CANVAS_HEIGHT - 150) + HERO_SIZE/2 - HITBOX_MARGIN;
 
         for (let i = state.entities.length - 1; i >= 0; i--) {
           const ent = state.entities[i];
           ent.y += state.speed * dt;
 
+          // Tighter Obstacle Hitbox
+          const oLeft = ent.x - OBSTACLE_SIZE/2 + HITBOX_MARGIN;
+          const oRight = ent.x + OBSTACLE_SIZE/2 - HITBOX_MARGIN;
+          const oTop = ent.y - OBSTACLE_SIZE/2 + HITBOX_MARGIN;
+          const oBottom = ent.y + OBSTACLE_SIZE/2 - HITBOX_MARGIN;
+
           if (
             !ent.collected &&
-            playerRect.x < ent.x + OBSTACLE_SIZE/2 &&
-            playerRect.x + playerRect.w > ent.x - OBSTACLE_SIZE/2 &&
-            playerRect.y < ent.y + OBSTACLE_SIZE/2 &&
-            playerRect.y + playerRect.h > ent.y - OBSTACLE_SIZE/2
+            pLeft < oRight && pRight > oLeft && pTop < oBottom && pBottom > oTop
           ) {
             if (ent.type === 'coin') {
               ent.collected = true;
@@ -219,7 +229,6 @@ const PepeRunner = ({ onExit }) => {
         }
       }
 
-      // Always process particle life so they fade properly
       state.particles.forEach((p, idx) => {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
@@ -227,7 +236,7 @@ const PepeRunner = ({ onExit }) => {
       });
       state.particles = state.particles.filter(p => p.life > 0);
 
-      // --- 2. RENDER PIPELINE (Runs regardless of play state) ---
+      // --- 2. RENDER PIPELINE ---
       ctx.fillStyle = state.isMoonMode ? '#1a0033' : '#0a192f';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -266,7 +275,7 @@ const PepeRunner = ({ onExit }) => {
       ctx.save();
       ctx.translate(state.playerX, CANVAS_HEIGHT - 150);
       
-      if (isPlaying && !gameOver) {
+      if (isPlaying && !gameOver && !state.isDead) {
           ctx.rotate(Math.sin(time / 100) * 0.05);
       }
 
@@ -277,7 +286,7 @@ const PepeRunner = ({ onExit }) => {
         ctx.fillRect(-HERO_SIZE/2, -HERO_SIZE/2, HERO_SIZE, HERO_SIZE);
       }
       
-      if (isPlaying && !gameOver) {
+      if (isPlaying && !gameOver && !state.isDead) {
           ctx.fillStyle = state.isMoonMode ? '#ff00ff' : 'orange';
           ctx.beginPath();
           ctx.moveTo(-15, HERO_SIZE/2);
@@ -299,7 +308,11 @@ const PepeRunner = ({ onExit }) => {
       ctx.font = '10px "Press Start 2P"';
       ctx.fillText(state.isMoonMode ? 'MOON MODE ACTIVE' : 'MOON METER', 25, 15);
 
-      if (state.score % 5 === 0) setScore(state.score); 
+      // Smart UI Sync: Only update React state if the score changes (prevents missed scores!)
+      if (state.score !== state.lastReportedScore) {
+          state.lastReportedScore = state.score;
+          setScore(state.score); 
+      }
 
       animationId = requestAnimationFrame(loop);
     };
@@ -358,6 +371,11 @@ const PepeRunner = ({ onExit }) => {
   };
 
   const triggerGameOver = async (state) => {
+    if (state.isDead) return; // Prevent duplicate triggers!
+    state.isDead = true;
+    
+    setScore(state.score); // Guarantee the final score syncs to the game over screen
+
     if (username) {
       await supabase.from('leaderboards').insert([{
         game_id: 'peperunner',
@@ -366,7 +384,10 @@ const PepeRunner = ({ onExit }) => {
         address: address
       }]);
     }
-    setGameOver(true);
+    
+    setTimeout(() => {
+        setGameOver(true);
+    }, 500); // Give it a half-second pause so the player sees what killed them
   };
 
   return (
@@ -377,7 +398,7 @@ const PepeRunner = ({ onExit }) => {
         isPlaying={isPlaying} 
         onRestart={() => { 
           setGameOver(false); 
-          setIsPlaying(false); // Make sure we go back to false so the countdown triggers again!
+          setIsPlaying(false); 
           setScore(0); 
           setResetKey(prev => prev + 1); 
         }} 
@@ -391,7 +412,6 @@ const PepeRunner = ({ onExit }) => {
         style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'pointer' }} 
       />
       
-      {/* INSTRUCTIONS ONLY SHOW AFTER COUNTDOWN FINISHES */}
       {!isPlaying && !gameOver && countdownFinished && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
