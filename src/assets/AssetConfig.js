@@ -75,10 +75,10 @@ export const ASSETS = {
   // --- PEPE FALL ---
   FALL_HERO: "assets/pf_hero.png",
   FALL_LASER: "assets/pf_laser.png",
-  FALL_PLATFORM: "assets/pf_plat.png",
+  FALL_PLATFORM: "assets/pf_floor.png",
   FALL_SPIKE: "assets/pf_spike.png", 
   FALL_BEAR: "assets/pf_bear.png",
-  FALL_DIP: "assets/pf_dip.png", 
+  FALL_DIP: "assets/pf_coin.png", 
   FALL_BG: "assets/pf_bg.png",
 };
 
