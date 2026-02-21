@@ -83,7 +83,6 @@ const CoinSlicer = ({ onExit }) => {
     };
 
     const handleStart = (e) => {
-      // FIX: Guard clause to allow UI buttons to be clicked
       if (e.target.closest('button') || e.target.closest('.interactive')) return;
       if (e.cancelable) e.preventDefault();
 
@@ -100,7 +99,6 @@ const CoinSlicer = ({ onExit }) => {
     };
 
     const handleMove = (e) => {
-      // FIX: Guard clause
       if (e.target.closest('button') || e.target.closest('.interactive')) return;
       if (!gameState.current.isSlicing) return;
       if (e.cancelable) e.preventDefault();
@@ -111,7 +109,6 @@ const CoinSlicer = ({ onExit }) => {
     };
 
     const handleEnd = (e) => {
-      // FIX: Removed e.preventDefault() here so the browser can synthesize clicks for buttons!
       gameState.current.isSlicing = false;
       gameState.current.blade = [];
     };
@@ -302,9 +299,15 @@ const CoinSlicer = ({ onExit }) => {
       state.multiplier = 2;
       state.multiplierTimer = 5000; 
       state.score += 5; 
-      spawnSplatter(state, item.x, item.y, '#00ff00', 50); 
+      spawnSplatter(state, item.x, item.y, '#00ff00', 50); // Rare Pepe Green
     } else {
-      spawnSplatter(state, item.x, item.y, '#ffd700', 20); 
+      // DYNAMIC COIN COLOR INJECTION
+      let particleColor = '#ffd700'; // Default gold
+      if (item.type === 'btc') particleColor = '#f7931a'; // Bitcoin Orange
+      if (item.type === 'eth') particleColor = '#627eea'; // Ethereum Blue/Silver
+      if (item.type === 'sol') particleColor = '#14f195'; // Solana Neon Mint
+
+      spawnSplatter(state, item.x, item.y, particleColor, 20); 
       state.score += 1 * state.multiplier;
     }
     setScore(state.score);
