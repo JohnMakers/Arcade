@@ -113,7 +113,6 @@ const PepeFall = ({ onExit }) => {
         }
       }
 
-      // Handle touch shooting exactly like a key press to prevent rapid fire
       if (isShootingTouch) {
           if (!gameState.current.keys.shoot) triggerShoot();
           gameState.current.keys.shoot = true;
@@ -155,7 +154,8 @@ const PepeFall = ({ onExit }) => {
 
       state.lasers.push({
           x: state.player.x + state.player.w / 2 - 5,
-          y: state.player.y + state.player.h,
+          // FIX: Spawn laser slightly higher inside the player so it immediately overlaps the floor
+          y: state.player.y + state.player.h - 10, 
           w: 10, h: 30, vy: 20
       });
 
@@ -231,7 +231,7 @@ const PepeFall = ({ onExit }) => {
     gameState.current.lasers = [];
     gameState.current.dips = [];
     gameState.current.particles = [];
-    gameState.current.lastGenY = 400; // Pushed down to guarantee safe spawn area
+    gameState.current.lastGenY = 400; 
     gameState.current.score = 0;
     gameState.current.isDead = false;
     gameState.current.lastTime = performance.now();
@@ -310,18 +310,22 @@ const PepeFall = ({ onExit }) => {
           state.dips = state.dips.filter(d => !d.collected);
 
           state.lasers.forEach(l => {
+              const prevY = l.y; // Track where the laser was BEFORE moving
               l.y += l.vy * dt;
               
+              // FIX: Continuous Collision Detection (Swept AABB)
               state.platforms.forEach(plat => {
-                  if (checkCollision(l, plat)) {
+                  if (l.x < plat.x + plat.w && l.x + l.w > plat.x &&
+                      prevY < plat.y + plat.h && l.y + l.h > plat.y) {
                       l.dead = true;
                       plat.markedForDeletion = true; 
-                      spawnDebris(l.x, l.y, plat.isSpike ? 'red' : 'lime'); 
+                      spawnDebris(l.x, plat.y, plat.isSpike ? 'red' : 'lime'); 
                   }
               });
 
               state.enemies.forEach(enemy => {
-                 if (checkCollision(l, enemy)) {
+                 if (l.x < enemy.x + enemy.w && l.x + l.w > enemy.x &&
+                     prevY < enemy.y + enemy.h && l.y + l.h > enemy.y) {
                      l.dead = true;
                      enemy.dead = true;
                      spawnDebris(enemy.x, enemy.y, 'red');
@@ -391,14 +395,12 @@ const PepeFall = ({ onExit }) => {
       state.enemies.forEach(enemy => {
           if (state.sprites['bear']) {
               if (enemy.dir < 0) {
-                  // Moving Left: Flip Sprite
                   ctx.save();
                   ctx.translate(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2);
                   ctx.scale(-1, 1);
                   ctx.drawImage(state.sprites['bear'], -enemy.w / 2, -enemy.h / 2, enemy.w, enemy.h);
                   ctx.restore();
               } else {
-                  // Moving Right: Normal Sprite
                   ctx.drawImage(state.sprites['bear'], enemy.x, enemy.y, enemy.w, enemy.h);
               }
           } else { 
