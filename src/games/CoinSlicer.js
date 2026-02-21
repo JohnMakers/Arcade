@@ -155,8 +155,9 @@ const CoinSlicer = ({ onExit }) => {
       }
 
       if (isPlaying && !gameOver) {
-        state.gravity = 0.4 + (state.score * 0.015);
-        state.spawnRate = Math.max(300, 1000 - (state.score * 25));
+        // FIX: Gentler gravity scaling, massive spawn rate increase
+        state.gravity = 0.4 + (state.score * 0.003); 
+        state.spawnRate = Math.max(200, 1000 - (state.score * 30)); // Floods the screen much faster
 
         if (state.multiplierTimer > 0) {
           state.multiplierTimer -= dtMs;
@@ -188,7 +189,8 @@ const CoinSlicer = ({ onExit }) => {
   }, [isPlaying, gameOver, resetKey, CANVAS_WIDTH]);
 
   const spawnItem = (state) => {
-    const isBomb = Math.random() < Math.min(0.5, 0.15 + (state.score * 0.01));
+    // FIX: Bombs scale up much faster now, capping at 60% of all throws
+    const isBomb = Math.random() < Math.min(0.6, 0.15 + (state.score * 0.02));
     const isRarePepe = !isBomb && Math.random() < 0.05;
     
     const types = ['btc', 'eth', 'sol'];
@@ -203,15 +205,18 @@ const CoinSlicer = ({ onExit }) => {
     const centerOffset = (CANVAS_WIDTH / 2) - x;
     const arcVelocity = (centerOffset / CANVAS_WIDTH) * 12; 
 
+    // FIX: Dynamic thrust ensures items always reach the top half of the screen even as gravity increases
+    const dynamicThrust = 16 + (state.score * 0.05);
+
     state.items.push({
       x: x,
       y: CANVAS_HEIGHT + 50,
-      vx: arcVelocity + (Math.random() - 0.5) * 4, 
-      vy: -16 - Math.random() * 7, 
+      vx: (arcVelocity + (Math.random() - 0.5) * 4) * (1 + state.score * 0.005), // Moves sideways faster
+      vy: -dynamicThrust - Math.random() * 6, // Thrown higher to compensate for gravity
       radius: 40,
       type: type,
       rotation: 0,
-      rotSpeed: (Math.random() - 0.5) * 0.3
+      rotSpeed: (Math.random() - 0.5) * 0.4
     });
   };
 
@@ -299,13 +304,12 @@ const CoinSlicer = ({ onExit }) => {
       state.multiplier = 2;
       state.multiplierTimer = 5000; 
       state.score += 5; 
-      spawnSplatter(state, item.x, item.y, '#00ff00', 50); // Rare Pepe Green
+      spawnSplatter(state, item.x, item.y, '#00ff00', 50); 
     } else {
-      // DYNAMIC COIN COLOR INJECTION
-      let particleColor = '#ffd700'; // Default gold
-      if (item.type === 'btc') particleColor = '#f7931a'; // Bitcoin Orange
-      if (item.type === 'eth') particleColor = '#627eea'; // Ethereum Blue/Silver
-      if (item.type === 'sol') particleColor = '#14f195'; // Solana Neon Mint
+      let particleColor = '#ffd700';
+      if (item.type === 'btc') particleColor = '#f7931a'; 
+      if (item.type === 'eth') particleColor = '#627eea'; 
+      if (item.type === 'sol') particleColor = '#14f195'; 
 
       spawnSplatter(state, item.x, item.y, particleColor, 20); 
       state.score += 1 * state.multiplier;
