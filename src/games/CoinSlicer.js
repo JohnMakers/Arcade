@@ -155,9 +155,8 @@ const CoinSlicer = ({ onExit }) => {
       }
 
       if (isPlaying && !gameOver) {
-        // FIX: Gentler gravity scaling, massive spawn rate increase
         state.gravity = 0.4 + (state.score * 0.003); 
-        state.spawnRate = Math.max(200, 1000 - (state.score * 30)); // Floods the screen much faster
+        state.spawnRate = Math.max(200, 1000 - (state.score * 30)); 
 
         if (state.multiplierTimer > 0) {
           state.multiplierTimer -= dtMs;
@@ -189,8 +188,8 @@ const CoinSlicer = ({ onExit }) => {
   }, [isPlaying, gameOver, resetKey, CANVAS_WIDTH]);
 
   const spawnItem = (state) => {
-    // FIX: Bombs scale up much faster now, capping at 60% of all throws
-    const isBomb = Math.random() < Math.min(0.6, 0.15 + (state.score * 0.02));
+    // FIX: Slower progression, lower cap. Maxes out at 40% bombs.
+    const isBomb = Math.random() < Math.min(0.40, 0.12 + (state.score * 0.006));
     const isRarePepe = !isBomb && Math.random() < 0.05;
     
     const types = ['btc', 'eth', 'sol'];
@@ -205,14 +204,13 @@ const CoinSlicer = ({ onExit }) => {
     const centerOffset = (CANVAS_WIDTH / 2) - x;
     const arcVelocity = (centerOffset / CANVAS_WIDTH) * 12; 
 
-    // FIX: Dynamic thrust ensures items always reach the top half of the screen even as gravity increases
     const dynamicThrust = 16 + (state.score * 0.05);
 
     state.items.push({
       x: x,
       y: CANVAS_HEIGHT + 50,
-      vx: (arcVelocity + (Math.random() - 0.5) * 4) * (1 + state.score * 0.005), // Moves sideways faster
-      vy: -dynamicThrust - Math.random() * 6, // Thrown higher to compensate for gravity
+      vx: (arcVelocity + (Math.random() - 0.5) * 4) * (1 + state.score * 0.005), 
+      vy: -dynamicThrust - Math.random() * 6, 
       radius: 40,
       type: type,
       rotation: 0,
