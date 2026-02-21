@@ -30,6 +30,7 @@ const BagsGrowth = ({ onExit }) => {
     windTime: 0,
     difficultyMultiplier: 1,
     spawnTimer: 0,
+    health: 3, // <--- NEW: Start with 3 lives
     keys: {},
     sprites: {},
     lastTime: 0
@@ -52,7 +53,7 @@ const BagsGrowth = ({ onExit }) => {
     loadSprite('fud', ASSETS.BG_FUD);
   }, []);
 
-    // Input Handling (Keyboard & Touch)
+  // Input Handling (Keyboard & Touch)
   useEffect(() => {
     const handleKeyDown = (e) => { 
         gameState.current.keys[e.code] = true; 
@@ -126,6 +127,7 @@ const BagsGrowth = ({ onExit }) => {
     gameState.current.difficultyMultiplier = 1;
     gameState.current.wind = 0;
     gameState.current.windTime = 0;
+    gameState.current.health = 3; // <--- NEW: Reset health on restart
 
     gameState.current.lastTime = performance.now();
     let animationId;
@@ -212,6 +214,12 @@ const BagsGrowth = ({ onExit }) => {
           if (item.y > CANVAS_HEIGHT) {
               if (item.type === 'GEM' || item.type === 'ALPHA') {
                   spawnEmojis(state, item.x, CANVAS_HEIGHT - 50, '😢'); // Sad Pepe substitute
+                  
+                  // <--- NEW: Health deduction logic --->
+                  state.health -= 1;
+                  if (state.health <= 0) {
+                      triggerGameOver(state);
+                  }
               }
               state.items.splice(i, 1);
           }
@@ -340,6 +348,16 @@ const BagsGrowth = ({ onExit }) => {
           ctx.fillText(e.char, e.x, e.y);
           ctx.globalAlpha = 1.0;
       });
+
+      // <--- NEW: Draw Health Bar (Top Right) --->
+      if (isPlaying && !gameOver) {
+          ctx.globalAlpha = 1.0;
+          ctx.font = '24px serif';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'top';
+          // Draw a literal heart for every life remaining
+          ctx.fillText('❤️'.repeat(Math.max(0, state.health)), CANVAS_WIDTH - 20, 20);
+      }
   };
 
   return (
