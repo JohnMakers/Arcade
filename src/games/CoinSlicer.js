@@ -83,7 +83,10 @@ const CoinSlicer = ({ onExit }) => {
     };
 
     const handleStart = (e) => {
-      e.preventDefault();
+      // FIX: Guard clause to allow UI buttons to be clicked
+      if (e.target.closest('button') || e.target.closest('.interactive')) return;
+      if (e.cancelable) e.preventDefault();
+
       if (!isPlaying && !gameOver) {
         if (!canStart) return; 
         
@@ -97,15 +100,18 @@ const CoinSlicer = ({ onExit }) => {
     };
 
     const handleMove = (e) => {
-      e.preventDefault();
+      // FIX: Guard clause
+      if (e.target.closest('button') || e.target.closest('.interactive')) return;
       if (!gameState.current.isSlicing) return;
+      if (e.cancelable) e.preventDefault();
+      
       const pos = getPos(e);
       gameState.current.blade.push(pos);
       if (gameState.current.blade.length > 10) gameState.current.blade.shift();
     };
 
     const handleEnd = (e) => {
-      e.preventDefault();
+      // FIX: Removed e.preventDefault() here so the browser can synthesize clicks for buttons!
       gameState.current.isSlicing = false;
       gameState.current.blade = [];
     };
@@ -139,7 +145,6 @@ const CoinSlicer = ({ onExit }) => {
     const loop = (time) => {
       const state = gameState.current;
       
-      // Calculate delta time (dtMs) and normalize it to a 60FPS baseline (timeScale)
       const dtMs = time - state.lastTime > 0 ? Math.min((time - state.lastTime), 50) : 16.667; 
       state.lastTime = time;
       const timeScale = dtMs / 16.667;
@@ -174,7 +179,6 @@ const CoinSlicer = ({ onExit }) => {
         }
       }
 
-      // Pass timeScale down to the render functions so physics stay consistent regardless of frame rate
       updateAndDrawItems(ctx, state, isPlaying, gameOver, timeScale);
       updateAndDrawParticles(ctx, state, dtMs, isPlaying, gameOver, timeScale);
       drawBlade(ctx, state);
@@ -219,7 +223,6 @@ const CoinSlicer = ({ onExit }) => {
       let item = state.items[i];
       
       if (isPlaying && !gameOver) {
-        // Multiply by timeScale to normalize movement across different monitor refresh rates
         item.x += item.vx * timeScale;
         item.vy += state.gravity * timeScale;
         item.y += item.vy * timeScale;
@@ -255,11 +258,10 @@ const CoinSlicer = ({ onExit }) => {
       let p = state.particles[i];
       
       if (isPlaying && !gameOver) {
-        // Normalize particle physics too
         p.x += p.vx * timeScale;
         p.y += p.vy * timeScale;
         p.vy += 0.3 * timeScale; 
-        p.life -= dtMs; // Timer naturally uses raw ms
+        p.life -= dtMs; 
       }
 
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
