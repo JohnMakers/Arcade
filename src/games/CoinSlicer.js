@@ -36,7 +36,6 @@ const CoinSlicer = ({ onExit }) => {
     lastSpawnX: CANVAS_WIDTH / 2
   });
 
-  // Sync the local start lock with the GameUI 3-second countdown
   useEffect(() => {
     if (!isPlaying && !gameOver) {
       setCanStart(false);
@@ -45,7 +44,6 @@ const CoinSlicer = ({ onExit }) => {
     }
   }, [isPlaying, gameOver]);
 
-  // Load Assets
   useEffect(() => {
     const loadSprite = (key, src) => {
       const img = new Image();
@@ -70,7 +68,6 @@ const CoinSlicer = ({ onExit }) => {
     return (p.x - (v.x + t * (w.x - v.x))) ** 2 + (p.y - (v.y + t * (w.y - v.y))) ** 2;
   };
 
-  // Input Handling
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -131,7 +128,6 @@ const CoinSlicer = ({ onExit }) => {
     };
   }, [isPlaying, gameOver, CANVAS_WIDTH, canStart]); 
 
-  // Core Game Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -142,10 +138,12 @@ const CoinSlicer = ({ onExit }) => {
 
     const loop = (time) => {
       const state = gameState.current;
-      const dt = time - state.lastTime > 0 ? Math.min((time - state.lastTime), 50) : 16; 
+      
+      // Calculate delta time (dtMs) and normalize it to a 60FPS baseline (timeScale)
+      const dtMs = time - state.lastTime > 0 ? Math.min((time - state.lastTime), 50) : 16.667; 
       state.lastTime = time;
+      const timeScale = dtMs / 16.667;
 
-      // Unconditional Draw: Background always renders
       ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       if (state.sprites['bg']) {
@@ -154,18 +152,16 @@ const CoinSlicer = ({ onExit }) => {
         ctx.globalAlpha = 1.0;
       }
 
-      // Only update physics and spawn if actively playing
       if (isPlaying && !gameOver) {
-        // AGGRESSIVE SCALING
         state.gravity = 0.4 + (state.score * 0.015);
-        state.spawnRate = Math.max(300, 1000 - (state.score * 25)); // Spawns get insanely fast
+        state.spawnRate = Math.max(300, 1000 - (state.score * 25));
 
         if (state.multiplierTimer > 0) {
-          state.multiplierTimer -= dt;
+          state.multiplierTimer -= dtMs;
           if (state.multiplierTimer <= 0) state.multiplier = 1;
         }
 
-        state.timeSinceLastSpawn += dt;
+        state.timeSinceLastSpawn += dtMs;
         if (state.timeSinceLastSpawn > state.spawnRate) {
           state.timeSinceLastSpawn = 0;
           spawnItem(state);
@@ -178,9 +174,9 @@ const CoinSlicer = ({ onExit }) => {
         }
       }
 
-      // Items and particles draw unconditionally so they freeze beautifully on Game Over
-      updateAndDrawItems(ctx, state, isPlaying, gameOver);
-      updateAndDrawParticles(ctx, state, dt, isPlaying, gameOver);
+      // Pass timeScale down to the render functions so physics stay consistent regardless of frame rate
+      updateAndDrawItems(ctx, state, isPlaying, gameOver, timeScale);
+      updateAndDrawParticles(ctx, state, dtMs, isPlaying, gameOver, timeScale);
       drawBlade(ctx, state);
 
       animationId = requestAnimationFrame(loop);
@@ -191,7 +187,6 @@ const CoinSlicer = ({ onExit }) => {
   }, [isPlaying, gameOver, resetKey, CANVAS_WIDTH]);
 
   const spawnItem = (state) => {
-    // Increased Bomb frequency at lower scores
     const isBomb = Math.random() < Math.min(0.5, 0.15 + (state.score * 0.01));
     const isRarePepe = !isBomb && Math.random() < 0.05;
     
@@ -205,13 +200,13 @@ const CoinSlicer = ({ onExit }) => {
     state.lastSpawnX = x;
 
     const centerOffset = (CANVAS_WIDTH / 2) - x;
-    const arcVelocity = (centerOffset / CANVAS_WIDTH) * 12; // Wider arc
+    const arcVelocity = (centerOffset / CANVAS_WIDTH) * 12; 
 
     state.items.push({
       x: x,
       y: CANVAS_HEIGHT + 50,
       vx: arcVelocity + (Math.random() - 0.5) * 4, 
-      vy: -16 - Math.random() * 7, // Faster, higher pop
+      vy: -16 - Math.random() * 7, 
       radius: 40,
       type: type,
       rotation: 0,
@@ -219,15 +214,16 @@ const CoinSlicer = ({ onExit }) => {
     });
   };
 
-  const updateAndDrawItems = (ctx, state, isPlaying, gameOver) => {
+  const updateAndDrawItems = (ctx, state, isPlaying, gameOver, timeScale) => {
     for (let i = state.items.length - 1; i >= 0; i--) {
       let item = state.items[i];
       
       if (isPlaying && !gameOver) {
-        item.x += item.vx;
-        item.vy += state.gravity;
-        item.y += item.vy;
-        item.rotation += item.rotSpeed;
+        // Multiply by timeScale to normalize movement across different monitor refresh rates
+        item.x += item.vx * timeScale;
+        item.vy += state.gravity * timeScale;
+        item.y += item.vy * timeScale;
+        item.rotation += item.rotSpeed * timeScale;
       }
 
       ctx.save();
@@ -254,15 +250,16 @@ const CoinSlicer = ({ onExit }) => {
     }
   };
 
-  const updateAndDrawParticles = (ctx, state, dt, isPlaying, gameOver) => {
+  const updateAndDrawParticles = (ctx, state, dtMs, isPlaying, gameOver, timeScale) => {
     for (let i = state.particles.length - 1; i >= 0; i--) {
       let p = state.particles[i];
       
       if (isPlaying && !gameOver) {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.3; 
-        p.life -= dt;
+        // Normalize particle physics too
+        p.x += p.vx * timeScale;
+        p.y += p.vy * timeScale;
+        p.vy += 0.3 * timeScale; 
+        p.life -= dtMs; // Timer naturally uses raw ms
       }
 
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
@@ -302,7 +299,7 @@ const CoinSlicer = ({ onExit }) => {
     if (item.type === 'pepe') {
       state.multiplier = 2;
       state.multiplierTimer = 5000; 
-      state.score += 5; // Instant reward for hitting the rare drop
+      state.score += 5; 
       spawnSplatter(state, item.x, item.y, '#00ff00', 50); 
     } else {
       spawnSplatter(state, item.x, item.y, '#ffd700', 20); 
@@ -367,7 +364,7 @@ const CoinSlicer = ({ onExit }) => {
     gameState.current.items = [];
     gameState.current.particles = [];
     gameState.current.multiplier = 1;
-    gameState.current.gravity = 0.4; // Base gravity reset
+    gameState.current.gravity = 0.4; 
     setResetKey(prev => prev + 1); 
   };
 

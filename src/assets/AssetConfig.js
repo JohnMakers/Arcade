@@ -94,7 +94,7 @@ export const ASSETS = {
   CS_BTC: "assets/cs_btc.png",
   CS_ETH: "assets/cs_eth.png",
   CS_SOL: "assets/cs_sol.png",
-  CS_BOMB: "assets/fud.png", // Rug pull
+  CS_BOMB: "assets/cs_fud.png", // Rug pull
   CS_PEPE: "assets/cs_pepe.png", // Rare Pepe
 
 };
