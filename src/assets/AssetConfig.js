@@ -90,12 +90,12 @@ export const ASSETS = {
   RUNNER_BG: "assets/pr_bg.png",         // Optional background
 
   // --- COIN SLICER ---
-  CS_BG: "https://images.unsplash.com/photo-1639762681485-074b7f4tc4c0?auto=format&fit=crop&w=800&q=80",
+  CS_BG: "assets/cs_bg.png",
   CS_BTC: "assets/cs_btc.png",
   CS_ETH: "assets/cs_eth.png",
   CS_SOL: "assets/cs_sol.png",
   CS_BOMB: "assets/fud.png", // Rug pull
-  CS_PEPE: "https://upload.wikimedia.org/wikipedia/en/4/45/Pepe_the_Frog.jpg", // Rare Pepe
+  CS_PEPE: "assets/cs_pepe.png", // Rare Pepe
 
 };
 
