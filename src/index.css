@@ -13,6 +13,7 @@ html, body, #root, .App {
   font-family: 'Press Start 2P', cursive;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
   
   /* CRITICAL FOR CENTERING: */
   display: flex;
@@ -62,6 +63,7 @@ canvas {
   image-rendering: pixelated; 
   image-rendering: crisp-edges;
   touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* --- UI LAYERS --- */
