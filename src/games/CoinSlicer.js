@@ -31,8 +31,8 @@ const CoinSlicer = ({ onExit }) => {
     sprites: {},
     lastTime: 0,
     timeSinceLastSpawn: 0,
-    spawnRate: 1800, // FIX: Starts much slower and more relaxed
-    gravity: 0.25,  // FIX: Lower starting gravity so coins float nicely
+    spawnRate: 1500, // FIX: Slightly faster start 
+    gravity: 0.30,  // FIX: Slightly heavier starting gravity
     lastSpawnX: CANVAS_WIDTH / 2
   });
 
@@ -91,7 +91,6 @@ const CoinSlicer = ({ onExit }) => {
         
         setIsPlaying(true);
         spawnItem(gameState.current);
-        // Removed the double-spawn at start to keep it chill early on
         gameState.current.timeSinceLastSpawn = 0;
       }
       gameState.current.isSlicing = true;
@@ -155,9 +154,9 @@ const CoinSlicer = ({ onExit }) => {
       }
 
       if (isPlaying && !gameOver) {
-        // FIX: Incredibly slow scaling curve. Gravity climbs slowly, spawn rate decays smoothly.
-        state.gravity = 0.25 + (state.score * 0.001); 
-        state.spawnRate = Math.max(500, 1800 - (state.score * 10)); 
+        // Smooth scaling from the new baseline
+        state.gravity = 0.30 + (state.score * 0.0015); 
+        state.spawnRate = Math.max(400, 1500 - (state.score * 12)); 
 
         if (state.multiplierTimer > 0) {
           state.multiplierTimer -= dtMs;
@@ -189,7 +188,6 @@ const CoinSlicer = ({ onExit }) => {
   }, [isPlaying, gameOver, resetKey, CANVAS_WIDTH]);
 
   const spawnItem = (state) => {
-    // FIX: Bombs start at just 5% and slowly climb to a hard cap of 35%
     const isBomb = Math.random() < Math.min(0.35, 0.05 + (state.score * 0.003));
     const isRarePepe = !isBomb && Math.random() < 0.05;
     
@@ -203,10 +201,10 @@ const CoinSlicer = ({ onExit }) => {
     state.lastSpawnX = x;
 
     const centerOffset = (CANVAS_WIDTH / 2) - x;
-    const arcVelocity = (centerOffset / CANVAS_WIDTH) * 10; // Slightly tighter arc
+    const arcVelocity = (centerOffset / CANVAS_WIDTH) * 10; 
 
-    // FIX: Base thrust is lower so it matches the new lower gravity
-    const dynamicThrust = 14 + (state.score * 0.02);
+    // FIX: Base thrust raised slightly to give a better initial pop
+    const dynamicThrust = 15.5 + (state.score * 0.03);
 
     state.items.push({
       x: x,
@@ -373,7 +371,7 @@ const CoinSlicer = ({ onExit }) => {
     gameState.current.items = [];
     gameState.current.particles = [];
     gameState.current.multiplier = 1;
-    gameState.current.gravity = 0.25; // FIX: Ensure this resets to the new lower floaty gravity
+    gameState.current.gravity = 0.30; // FIX: Ensure reset matches new start gravity
     setResetKey(prev => prev + 1); 
   };
 
