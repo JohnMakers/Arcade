@@ -34,7 +34,7 @@ const PepeFall = ({ onExit }) => {
     lasers: [],
     particles: [],
     dips: [], 
-    lastGenY: 400, // Pushed generation down to create a safe start zone
+    lastGenY: 400, 
     keys: { left: false, right: false, shoot: false },
     score: 0,
     isDead: false, 
@@ -99,12 +99,26 @@ const PepeFall = ({ onExit }) => {
       gameState.current.keys.left = false;
       gameState.current.keys.right = false;
       
+      let isShootingTouch = false;
+      
       for (let i = 0; i < e.touches.length; i++) {
         const touchX = e.touches[i].clientX;
         const screenW = window.innerWidth;
-        if (touchX < screenW / 3) gameState.current.keys.left = true;
-        else if (touchX > (screenW / 3) * 2) gameState.current.keys.right = true;
-        else triggerShoot(); 
+        if (touchX < screenW / 3) {
+            gameState.current.keys.left = true;
+        } else if (touchX > (screenW / 3) * 2) {
+            gameState.current.keys.right = true;
+        } else {
+            isShootingTouch = true;
+        }
+      }
+
+      // Handle touch shooting exactly like a key press to prevent rapid fire
+      if (isShootingTouch) {
+          if (!gameState.current.keys.shoot) triggerShoot();
+          gameState.current.keys.shoot = true;
+      } else {
+          gameState.current.keys.shoot = false;
       }
     };
 
@@ -301,7 +315,7 @@ const PepeFall = ({ onExit }) => {
               state.platforms.forEach(plat => {
                   if (checkCollision(l, plat)) {
                       l.dead = true;
-                      plat.markedForDeletion = true; // Now destroys normal blocks AND red spikes
+                      plat.markedForDeletion = true; 
                       spawnDebris(l.x, l.y, plat.isSpike ? 'red' : 'lime'); 
                   }
               });
@@ -373,9 +387,23 @@ const PepeFall = ({ onExit }) => {
           else { ctx.fillStyle = 'gold'; ctx.beginPath(); ctx.arc(dip.x+dip.w/2, dip.y+dip.h/2, dip.w/2, 0, Math.PI*2); ctx.fill(); }
       });
 
+      // RENDER ENEMIES (WITH FLIP LOGIC)
       state.enemies.forEach(enemy => {
-          if (state.sprites['bear']) ctx.drawImage(state.sprites['bear'], enemy.x, enemy.y, enemy.w, enemy.h);
-          else { ctx.fillStyle = 'brown'; ctx.fillRect(enemy.x, enemy.y, enemy.w, enemy.h); }
+          if (state.sprites['bear']) {
+              if (enemy.dir < 0) {
+                  // Moving Left: Flip Sprite
+                  ctx.save();
+                  ctx.translate(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2);
+                  ctx.scale(-1, 1);
+                  ctx.drawImage(state.sprites['bear'], -enemy.w / 2, -enemy.h / 2, enemy.w, enemy.h);
+                  ctx.restore();
+              } else {
+                  // Moving Right: Normal Sprite
+                  ctx.drawImage(state.sprites['bear'], enemy.x, enemy.y, enemy.w, enemy.h);
+              }
+          } else { 
+              ctx.fillStyle = 'brown'; ctx.fillRect(enemy.x, enemy.y, enemy.w, enemy.h); 
+          }
       });
 
       ctx.fillStyle = '#00ffff';
