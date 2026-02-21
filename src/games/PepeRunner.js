@@ -238,20 +238,17 @@ const PepeRunner = ({ onExit }) => {
       state.particles = state.particles.filter(p => p.life > 0);
 
       // --- 2. RENDER PIPELINE ---
-      ctx.fillStyle = state.isMoonMode ? '#1a0033' : '#0a192f';
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-      ctx.strokeStyle = state.isMoonMode ? '#ff00ff' : '#00ff00';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([20, 20]);
-      LANES.forEach(x => {
-        ctx.beginPath();
-        ctx.lineDashOffset = -(state.distanceTraveled % 40);
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, CANVAS_HEIGHT);
-        ctx.stroke();
-      });
-      ctx.setLineDash([]);
+      const bgSprite = state.sprites['bg'];
+      
+      if (bgSprite && !state.isMoonMode) {
+        // STEADY BACKGROUND LOGIC
+        // Draw the image exactly once, covering the entire canvas
+        ctx.drawImage(bgSprite, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      } else {
+        // Fallback or Moon Mode background
+        ctx.fillStyle = state.isMoonMode ? '#1a0033' : '#0a192f';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      }
 
       state.entities.forEach(ent => {
         const sprite = state.sprites[ent.spriteKey];
