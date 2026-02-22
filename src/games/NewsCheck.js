@@ -62,7 +62,7 @@ const NewsCheck = ({ onExit }) => {
   const CANVAS_WIDTH = 500;
   const CANVAS_HEIGHT = 800;
   const WARMUP_SCORE = 10; 
-  const SWIPE_THRESHOLD = 120; 
+  const SWIPE_THRESHOLD = 40; // Dramatically lowered so a small flick triggers the action
   const PAPER_WIDTH = 300;
   const PAPER_HEIGHT = 350;
 
@@ -120,8 +120,8 @@ const NewsCheck = ({ onExit }) => {
         isVerified: false,
         x: CANVAS_WIDTH / 2,
         y: CANVAS_HEIGHT / 2,
-        vx: 0, // Used for game over physics
-        vy: 0, // Used for game over physics
+        vx: 0, 
+        vy: 0, 
         rotation: (Math.random() - 0.5) * 0.2
     };
 
@@ -254,7 +254,7 @@ const NewsCheck = ({ onExit }) => {
       window.removeEventListener('mouseup', handlePointerUp);
       window.removeEventListener('touchend', handlePointerUp);
     };
-  }, []); // Empty dependency array, state reads via refs
+  }, []); 
 
   // Keyboard Handling
   useEffect(() => {
@@ -283,7 +283,6 @@ const NewsCheck = ({ onExit }) => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
 
   // Core Game Loop
   useEffect(() => {
@@ -315,34 +314,44 @@ const NewsCheck = ({ onExit }) => {
           ctx.fillRect(CANVAS_WIDTH/2 - 160, 0, 320, CANVAS_HEIGHT);
       }
 
-      // 2. Draw Pepe Boss (with slight hover animation)
+      // 2. Draw Pepe Boss 
       if (state.sprites['pepe']) {
-          const hoverY = Math.sin(time / 300) * 5; // Creates a breathing effect
+          const hoverY = Math.sin(time / 300) * 5; 
           ctx.drawImage(state.sprites['pepe'], CANVAS_WIDTH/2 - 75, 40 + hoverY, 150, 150);
       }
 
-      // 3. Draw Indicators (Now significantly larger: 140x140)
+      // 3. Draw Indicators (Locked to canvas limits and scaled to 180x180)
+      const ICON_SIZE = 180;
       ctx.globalAlpha = 0.5;
-      if (state.sprites['trash']) ctx.drawImage(state.sprites['trash'], 10, CANVAS_HEIGHT/2 - 70, 140, 140);
-      else { ctx.fillStyle = 'red'; ctx.fillText("🗑️", 60, CANVAS_HEIGHT/2); }
       
-      if (state.sprites['print']) ctx.drawImage(state.sprites['print'], CANVAS_WIDTH - 150, CANVAS_HEIGHT/2 - 70, 140, 140);
-      else { ctx.fillStyle = 'green'; ctx.fillText("🖨️", CANVAS_WIDTH - 60, CANVAS_HEIGHT/2); }
+      // Trash on the absolute left edge (x = 0)
+      if (state.sprites['trash']) {
+          ctx.drawImage(state.sprites['trash'], 0, CANVAS_HEIGHT/2 - ICON_SIZE/2, ICON_SIZE, ICON_SIZE);
+      } else { 
+          ctx.fillStyle = 'red'; 
+          ctx.fillText("🗑️", 40, CANVAS_HEIGHT/2); 
+      }
+      
+      // Printer on the absolute right edge (x = CANVAS_WIDTH - ICON_SIZE)
+      if (state.sprites['print']) {
+          ctx.drawImage(state.sprites['print'], CANVAS_WIDTH - ICON_SIZE, CANVAS_HEIGHT/2 - ICON_SIZE/2, ICON_SIZE, ICON_SIZE);
+      } else { 
+          ctx.fillStyle = 'green'; 
+          ctx.fillText("🖨️", CANVAS_WIDTH - 40, CANVAS_HEIGHT/2); 
+      }
       ctx.globalAlpha = 1.0;
 
       const p = state.currentPaper;
       
       if (p) {
-          // Timer logic
           if (state.status === 'PLAYING') {
               if (!state.isDragging) {
                  state.timer -= state.timerDrainRate * dt;
                  if (state.timer <= 0) triggerGameOver();
               }
           } 
-          // Game Over Physics Logic
           else if (state.status === 'GAMEOVER') {
-              p.vy += 0.8 * dt; // Gravity
+              p.vy += 0.8 * dt; 
               p.y += p.vy * dt;
               p.x += p.vx * dt;
               p.rotation += (p.vx > 0 ? 0.05 : -0.05) * dt;
@@ -389,7 +398,8 @@ const NewsCheck = ({ onExit }) => {
               ctx.fillText("VERIFIED", 0, -PAPER_HEIGHT/2 + 30);
           }
 
-          if (Math.abs(state.offsetX) > 20) {
+          // Visual overlay feedback happens much faster now since threshold is lower
+          if (Math.abs(state.offsetX) > 5) {
              ctx.globalAlpha = Math.min(Math.abs(state.offsetX) / SWIPE_THRESHOLD, 0.5);
              ctx.fillStyle = state.offsetX > 0 ? '#00ff00' : '#ff0000';
              ctx.fillRect(-PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
@@ -443,10 +453,9 @@ const NewsCheck = ({ onExit }) => {
       
       state.status = 'GAMEOVER';
       
-      // Dynamic fall animation setup
       if (state.currentPaper) {
-         state.currentPaper.vy = -12; // Initial pop upwards
-         state.currentPaper.vx = (Math.random() - 0.5) * 15; // Random sideways spin
+         state.currentPaper.vy = -12; 
+         state.currentPaper.vx = (Math.random() - 0.5) * 15; 
       }
 
       if (username) {
@@ -464,7 +473,7 @@ const NewsCheck = ({ onExit }) => {
 
   const startGame = () => {
       setHasStarted(true); 
-      gameState.current.status = 'IDLE'; // Paused for countdown
+      gameState.current.status = 'IDLE'; 
       playTimeoutRef.current = setTimeout(() => {
           gameState.current.status = 'PLAYING';
           setIsPlaying(true);
