@@ -122,6 +122,16 @@ export const ASSETS = {
   WAP_PEPE: "assets/wap_pepe.png", // Friendly Pepe Placeholder
   WAP_MALLET: "assets/wap_hammer.png", // Optional: custom cursor/hammer
 
+  // --- $NEWS DELIVERY (NEW) ---
+  ND_HERO: "assets/nd_hero.png", 
+  ND_HOUSE_GREEN: "assets/nd_greenhouse.png", 
+  ND_HOUSE_RED: "assets/nd_redhouse.png", 
+  ND_PAPER: "assets/nd_paper.png",
+  ND_VAN: "assets/nd_sec.png",
+  ND_POTHOLE: "assets/nd_hole.png",
+  ND_AMMO: "assets/nd_ammo.png",
+
+
 };
 
 
