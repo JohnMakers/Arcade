@@ -55,6 +55,10 @@ const NewsDelivery = ({ onExit }) => {
     loadSprite('van', ASSETS.ND_VAN);
     loadSprite('pothole', ASSETS.ND_POTHOLE);
     loadSprite('ammo', ASSETS.ND_AMMO);
+    
+    // Background Textures
+    loadSprite('grass', ASSETS.TEXTURE_GRASS);
+    loadSprite('road', ASSETS.TEXTURE_ROAD);
   }, []);
 
   // Timer for Instructions (Waits for GameUI's 3-second countdown)
@@ -81,25 +85,37 @@ const NewsDelivery = ({ onExit }) => {
           return;
       }
       
-      let clientX;
+      let clientX, clientY;
       if (e.type.includes('touch')) {
         clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
       } else {
         clientX = e.clientX;
+        clientY = e.clientY;
       }
 
       const rect = canvasRef.current.getBoundingClientRect();
       const scaleX = CANVAS_WIDTH / rect.width;
+      const scaleY = CANVAS_HEIGHT / rect.height;
       const canvasX = (clientX - rect.left) * scaleX;
+      const canvasY = (clientY - rect.top) * scaleY;
 
-      // Tap/Click edges to throw
-      if (canvasX < ROAD_LEFT + 40) {
-          throwPaper(-1); 
-      } else if (canvasX > ROAD_RIGHT - 40) {
-          throwPaper(1);  
-      } else if (e.type.includes('touch')) {
-          // If touching the center on mobile, snap target to finger
-          gameState.current.player.targetX = canvasX;
+      if (e.type.includes('touch')) {
+          // Mobile: Tap edges to throw left/right
+          if (canvasX < ROAD_LEFT + 40) {
+              throwPaper(-8, -10); 
+          } else if (canvasX > ROAD_RIGHT - 40) {
+              throwPaper(8, -10);  
+          } else {
+              gameState.current.player.targetX = canvasX;
+          }
+      } else {
+          // Desktop: True mouse vector aiming
+          const dx = canvasX - gameState.current.player.x;
+          const dy = canvasY - gameState.current.player.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const speed = 15; // Projectile speed
+          throwPaper((dx / dist) * speed, (dy / dist) * speed);
       }
     };
 
@@ -116,8 +132,13 @@ const NewsDelivery = ({ onExit }) => {
       }
     };
 
-    // Desktop Keyboard Movement
+    // Desktop Keyboard Movement & Start
     const handleKeyDown = (e) => {
+        if (!isPlaying && showInstructions && !gameOver) {
+            if (['ArrowLeft', 'ArrowRight', 'a', 'A', 'd', 'D'].includes(e.key)) {
+                setIsPlaying(true);
+            }
+        }
         if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.current.left = true;
         if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.current.right = true;
     };
@@ -127,7 +148,7 @@ const NewsDelivery = ({ onExit }) => {
         if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.current.right = false;
     };
 
-    const throwPaper = (direction) => {
+    const throwPaper = (vx, vy) => {
         const state = gameState.current;
         if (state.ammo <= 0) {
             spawnText(state.player.x, state.player.y - 20, "NO AMMO!", "red");
@@ -141,8 +162,8 @@ const NewsDelivery = ({ onExit }) => {
             x: state.player.x,
             y: state.player.y,
             w: 20, h: 20,
-            vx: direction * 8, 
-            vy: -10, 
+            vx: vx, 
+            vy: vy, 
             active: true
         });
     };
@@ -194,18 +215,13 @@ const NewsDelivery = ({ onExit }) => {
       if (isPlaying && !gameOver) {
           state.distance += state.speed * dt;
           
-          // Difficulty scaling based on SCORE, scaling slower, with a cap
           state.speed = INITIAL_SPEED + (state.score * 0.05);
           state.speed = Math.min(state.speed, MAX_SPEED);
 
-          // Keyboard steering logic
           if (keys.current.left) state.player.targetX -= 12 * dt;
           if (keys.current.right) state.player.targetX += 12 * dt;
 
-          // Clamp target to road boundaries
           state.player.targetX = Math.max(ROAD_LEFT + state.player.w/2, Math.min(ROAD_RIGHT - state.player.w/2, state.player.targetX));
-
-          // Smoothly move player towards targetX
           state.player.x += (state.player.targetX - state.player.x) * 0.2 * dt;
 
           if (Math.random() < 0.03 * dt) { 
@@ -215,8 +231,12 @@ const NewsDelivery = ({ onExit }) => {
           state.entities.forEach(ent => {
               ent.y += state.speed * dt;
               
-              if (ent.y > state.player.y - ent.h && ent.y < state.player.y + state.player.h) {
-                  if (Math.abs(ent.x - state.player.x) < (ent.w/2 + state.player.w/2)) {
+              // Hitbox logic (forgiving inner box)
+              const ew = ent.hitW || ent.w;
+              const eh = ent.hitH || ent.h;
+
+              if (ent.y > state.player.y - eh && ent.y < state.player.y + state.player.h) {
+                  if (Math.abs(ent.x - state.player.x) < (ew/2 + state.player.w/2)) {
                       if (ent.type === 'VAN' || ent.type === 'POTHOLE') {
                           triggerGameOver();
                       } else if (ent.type === 'AMMO' && ent.active) {
@@ -246,7 +266,6 @@ const NewsDelivery = ({ onExit }) => {
                               spawnText(house.x, house.y, "+10 HODL", "lime");
                               setScore(state.score);
                           } else {
-                              // FUD House penalty - immediate game over
                               spawnText(house.x, house.y, "RUG PULLED!", "red");
                               triggerGameOver();
                           }
@@ -260,28 +279,50 @@ const NewsDelivery = ({ onExit }) => {
       }
 
       // --- 2. RENDERING (ALWAYS RUNS) ---
-      ctx.fillStyle = '#1e3f20'; 
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      ctx.fillStyle = '#333';
-      ctx.fillRect(ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, CANVAS_HEIGHT);
+      // Helper function to draw scrolling background tiles
+      const drawTiled = (img, dx, dWidth) => {
+          if (!img || !img.complete || img.width === 0) return false;
+          const imgRatio = img.height / img.width;
+          const dHeight = dWidth * imgRatio;
+          const offset = state.distance % dHeight;
+          
+          for(let i = -dHeight + offset; i < CANVAS_HEIGHT; i += dHeight) {
+              ctx.drawImage(img, dx, i, dWidth, dHeight);
+          }
+          return true;
+      };
 
-      ctx.fillStyle = '#fff';
-      for(let i = 0; i < CANVAS_HEIGHT; i += 60) {
-          const offset = state.distance % 60;
-          ctx.fillRect(CANVAS_WIDTH/2 - 2, i + offset, 4, 30);
+      // Draw Grass Base
+      if (!drawTiled(state.sprites['grass'], 0, CANVAS_WIDTH)) {
+          ctx.fillStyle = '#1e3f20'; 
+          ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      }
+      
+      // Draw Road Base
+      if (!drawTiled(state.sprites['road'], ROAD_LEFT, ROAD_RIGHT - ROAD_LEFT)) {
+          ctx.fillStyle = '#333';
+          ctx.fillRect(ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, CANVAS_HEIGHT);
       }
 
+      // Draw Entities
       state.entities.forEach(ent => {
-          drawSprite(ctx, state, ent.texture, ent.x - ent.w/2, ent.y - ent.h/2, ent.w, ent.h, ent.hit ? 'orange' : ent.color);
+          drawSprite(ctx, state, ent.texture, ent.x - ent.w/2, ent.y - ent.h/2, ent.w, ent.h, ent.hit ? 'orange' : ent.color, ent.flip);
+          
+          // Optional: Debug Hitbox view (Uncomment to see the actual collision boxes)
+          // ctx.strokeStyle = 'rgba(255,0,0,0.5)';
+          // ctx.strokeRect(ent.x - ent.hitW/2, ent.y - ent.hitH/2, ent.hitW, ent.hitH);
       });
 
+      // Draw Papers
       state.papers.forEach(p => {
           drawSprite(ctx, state, 'paper', p.x - p.w/2, p.y - p.h/2, p.w, p.h, 'white');
       });
 
+      // Draw Player
       drawSprite(ctx, state, 'hero', state.player.x - state.player.w/2, state.player.y - state.player.h/2, state.player.w, state.player.h, 'lime');
 
+      // Draw Particles
       state.particles.forEach(p => {
           p.y -= 2 * dt;
           p.life -= dt;
@@ -303,45 +344,60 @@ const NewsDelivery = ({ onExit }) => {
 
   // --- HELPERS ---
 
-  const drawSprite = (ctx, state, textureKey, x, y, w, h, fallbackColor) => {
+  const drawSprite = (ctx, state, textureKey, x, y, w, h, fallbackColor, flip = false) => {
       const sprite = state.sprites[textureKey];
+      ctx.save();
+      if (flip) {
+          ctx.translate(x + w / 2, y + h / 2);
+          ctx.scale(-1, 1);
+          ctx.translate(-(x + w / 2), -(y + h / 2));
+      }
+
       if (sprite) {
           ctx.drawImage(sprite, x, y, w, h);
       } else {
           ctx.fillStyle = fallbackColor;
           ctx.fillRect(x, y, w, h);
       }
+      ctx.restore();
   };
 
   const spawnEntity = (state) => {
       const rand = Math.random();
-      let x, type, texture, color, w, h;
+      let x, type, texture, color, w, h, hitW, hitH, flip = false;
 
       if (rand < 0.4) {
+          // HOUSES
           const isLeft = Math.random() < 0.5;
           x = isLeft ? ROAD_LEFT / 2 : CANVAS_WIDTH - (ROAD_LEFT / 2);
+          flip = !isLeft; // Faces left if it spawned on the right side
           const isGreen = Math.random() < 0.7;
           type = isGreen ? 'HOUSE_GREEN' : 'HOUSE_RED';
           texture = isGreen ? 'house_green' : 'house_red';
           color = isGreen ? 'lime' : 'red';
-          w = 60; h = 60;
+          w = 60; h = 60; hitW = 50; hitH = 50;
       } else if (rand < 0.8) {
+          // OBSTACLES
           x = ROAD_LEFT + 20 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 40);
           const isVan = Math.random() < 0.5;
           type = isVan ? 'VAN' : 'POTHOLE';
           texture = isVan ? 'van' : 'pothole';
           color = isVan ? 'white' : 'black';
-          w = isVan ? 50 : 30;
-          h = isVan ? 80 : 30;
+          
+          w = isVan ? 50 : 70; // Pothole is visually large
+          h = isVan ? 80 : 70; 
+          hitW = isVan ? 45 : 30; // But pothole has very forgiving hitbox
+          hitH = isVan ? 75 : 30;
       } else {
+          // AMMO
           x = ROAD_LEFT + 20 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 40);
           type = 'AMMO';
           texture = 'ammo';
           color = 'cyan';
-          w = 30; h = 30;
+          w = 30; h = 30; hitW = 30; hitH = 30;
       }
 
-      state.entities.push({ x, y: -100, w, h, type, texture, color, hit: false, active: true });
+      state.entities.push({ x, y: -100, w, h, hitW, hitH, type, texture, color, hit: false, active: true, flip });
   };
 
   const spawnText = (x, y, text, color) => {
@@ -349,8 +405,6 @@ const NewsDelivery = ({ onExit }) => {
   };
 
   const triggerGameOver = async () => {
-      // Set these simultaneously so GameUI immediately renders the "Wasted" screen 
-      // instead of re-triggering the 3-second starting countdown
       setGameOver(true); 
       setIsPlaying(false);
       
