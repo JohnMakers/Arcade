@@ -15,6 +15,7 @@ import CoinSlicer from './games/CoinSlicer';
 import BagsGrowth from './games/BagsGrowth';
 import NewsCheck from './games/NewsCheck';
 import WhackAPerv from './games/WhackAPerv';
+import NewsDelivery from './games/NewsDelivery';
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
@@ -35,6 +36,7 @@ function App() {
       case 'bagsgrowth': return <BagsGrowth onExit={() => setActiveGame(null)} />;
       case 'newscheck': return <NewsCheck onExit={() => setActiveGame(null)} />; 
       case 'whackaperv': return <WhackAPerv onExit={() => setActiveGame(null)} />;
+      case 'newsdelivery': return <NewsDelivery onExit={() => setActiveGame(null)} />;
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };

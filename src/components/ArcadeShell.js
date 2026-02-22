@@ -102,6 +102,7 @@ const ArcadeShell = ({ onSelectGame }) => {
         <button className="btn-meme" onClick={() => onSelectGame('bagsgrowth')}>BAG'S GROWTH</button>
         <button className="btn-meme" onClick={() => onSelectGame('newscheck')}>$NEWS FRENZY</button>
         <button className="btn-meme" onClick={() => onSelectGame('whackaperv')}>WHACK-A-PERV</button>
+        <button className="btn-meme" onClick={() => onSelectGame('newsdelivery')}>$NEWS DELIVERY</button>
 
       </div>
       </div>
