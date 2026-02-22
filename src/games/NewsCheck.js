@@ -62,13 +62,12 @@ const NewsCheck = ({ onExit }) => {
   const CANVAS_WIDTH = 500;
   const CANVAS_HEIGHT = 800;
   const WARMUP_SCORE = 10; 
-  const SWIPE_THRESHOLD = 40; // Dramatically lowered so a small flick triggers the action
+  const SWIPE_THRESHOLD = 40; 
   const PAPER_WIDTH = 300;
   const PAPER_HEIGHT = 350;
 
-  // We use this ref to keep track of real-time status without closure issues in the loop
   const gameState = useRef({
-    status: 'IDLE', // IDLE, PLAYING, GAMEOVER
+    status: 'IDLE', 
     score: 0,
     sprites: {},
     currentPaper: null,
@@ -320,24 +319,25 @@ const NewsCheck = ({ onExit }) => {
           ctx.drawImage(state.sprites['pepe'], CANVAS_WIDTH/2 - 75, 40 + hoverY, 150, 150);
       }
 
-      // 3. Draw Indicators (Locked to canvas limits and scaled to 180x180)
-      const ICON_SIZE = 180;
-      ctx.globalAlpha = 0.5;
+      // 3. Draw Indicators (Scaled down slightly and moved to bottom corners)
+      const ICON_SIZE = 130;
+      const ICON_Y = 600; // Pushed down safely below the paper limits
+      ctx.globalAlpha = 0.6; // Slightly more transparent so they don't distract
       
-      // Trash on the absolute left edge (x = 0)
+      // Trash on the absolute left edge
       if (state.sprites['trash']) {
-          ctx.drawImage(state.sprites['trash'], 0, CANVAS_HEIGHT/2 - ICON_SIZE/2, ICON_SIZE, ICON_SIZE);
+          ctx.drawImage(state.sprites['trash'], 10, ICON_Y, ICON_SIZE, ICON_SIZE);
       } else { 
           ctx.fillStyle = 'red'; 
-          ctx.fillText("🗑️", 40, CANVAS_HEIGHT/2); 
+          ctx.fillText("🗑️", 40, ICON_Y + ICON_SIZE/2); 
       }
       
-      // Printer on the absolute right edge (x = CANVAS_WIDTH - ICON_SIZE)
+      // Printer on the absolute right edge
       if (state.sprites['print']) {
-          ctx.drawImage(state.sprites['print'], CANVAS_WIDTH - ICON_SIZE, CANVAS_HEIGHT/2 - ICON_SIZE/2, ICON_SIZE, ICON_SIZE);
+          ctx.drawImage(state.sprites['print'], CANVAS_WIDTH - ICON_SIZE - 10, ICON_Y, ICON_SIZE, ICON_SIZE);
       } else { 
           ctx.fillStyle = 'green'; 
-          ctx.fillText("🖨️", CANVAS_WIDTH - 40, CANVAS_HEIGHT/2); 
+          ctx.fillText("🖨️", CANVAS_WIDTH - 40, ICON_Y + ICON_SIZE/2); 
       }
       ctx.globalAlpha = 1.0;
 
@@ -398,7 +398,6 @@ const NewsCheck = ({ onExit }) => {
               ctx.fillText("VERIFIED", 0, -PAPER_HEIGHT/2 + 30);
           }
 
-          // Visual overlay feedback happens much faster now since threshold is lower
           if (Math.abs(state.offsetX) > 5) {
              ctx.globalAlpha = Math.min(Math.abs(state.offsetX) / SWIPE_THRESHOLD, 0.5);
              ctx.fillStyle = state.offsetX > 0 ? '#00ff00' : '#ff0000';
