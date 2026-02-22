@@ -13,7 +13,20 @@ const NewsDelivery = ({ onExit }) => {
   const [ammo, setAmmo] = useState(10); // Start with 10 papers
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (!isPlaying && !gameOver) {
+        timer = setTimeout(() => {
+            setShowInstructions(true);
+        }, 3000); 
+    } else {
+        setShowInstructions(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isPlaying, gameOver]);  
 
   // --- CONFIGURATION ---
   const CANVAS_WIDTH = 500;
