@@ -306,7 +306,17 @@ const BagsGrowth = ({ onExit }) => {
       if (bgSprite) {
           ctx.drawImage(bgSprite, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       }
-
+    // Draw Floor
+      const floorY = CANVAS_HEIGHT - 40;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, floorY, CANVAS_WIDTH, CANVAS_HEIGHT - floorY);
+      ctx.beginPath();
+      ctx.moveTo(0, floorY);
+      ctx.lineTo(CANVAS_WIDTH, floorY);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 6;
+      ctx.stroke();
+     
       // Draw Wind Indicator (Background effect)
       if (state.wind !== 0) {
           ctx.fillStyle = `rgba(255, 255, 255, 0.05)`;

@@ -101,10 +101,10 @@ export const ASSETS = {
   BG_BG: "assets/bg_bg.png", 
   BG_HERO: "assets/bg_hero.png",
   BG_CHAD: "assets/bg_goldenhero.png", 
-  BG_GEM: "aassets/bg_diamond.png", 
-  BG_ALPHA: "assets/bg_gold.png", // Fire/Alpha
-  BG_HEAVY: "assets/bg_slow.png", // Moai/Heavy bag
-  BG_FUD: "assets/bg_rug.png", // Red chart down
+  BG_GEM: "assets/bg_diamond.png", 
+  BG_ALPHA: "assets/bg_gold.png", 
+  BG_HEAVY: "assets/bg_slow.png",  
+  BG_FUD: "assets/bg_rug.png", 
 };
 
 
