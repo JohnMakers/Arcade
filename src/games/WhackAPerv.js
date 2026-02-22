@@ -17,7 +17,8 @@ const WhackAPerv = ({ onExit }) => {
   // --- CONFIGURATION ---
   const CANVAS_WIDTH = 500;
   const CANVAS_HEIGHT = 800;
-  const HOLE_ROWS = 3;
+  // Upgraded to 4 rows to better utilize the portrait canvas
+  const HOLE_ROWS = 4; 
   const HOLE_COLS = 3;
   const HOLE_WIDTH = 100;
   const HOLE_HEIGHT = 40;
@@ -56,13 +57,13 @@ const WhackAPerv = ({ onExit }) => {
     loadSprite('mallet', ASSETS.WAP_MALLET);
   }, []);
 
-  // Define the 3x3 Grid
+  // Define the 4x3 Grid
   useEffect(() => {
     const holes = [];
     const startX = 100;
-    const startY = 300;
+    const startY = 220; // Moved up to fill the top space
     const xGap = 150;
-    const yGap = 160;
+    const yGap = 140; // Tightened vertical gap to fit 4 rows perfectly
 
     for (let row = 0; row < HOLE_ROWS; row++) {
       for (let col = 0; col < HOLE_COLS; col++) {
@@ -145,7 +146,6 @@ const WhackAPerv = ({ onExit }) => {
         mole.state = 'hit';
         
         if (mole.type === 'pepe') {
-          // Visual feedback before dying instead of an alert
           spawnParticles(x, y, '#ff0000', 30);
           spawnText(hole.x, hole.y - 50, "😡 HIT A FREN!", '#ff0000');
           triggerGameOver(); 
@@ -305,11 +305,7 @@ const WhackAPerv = ({ onExit }) => {
                ctx.fillStyle = mole.type === 'pepe' ? '#00ff00' : (mole.type === 'diddy' ? '#ff00ff' : '#aa00ff');
                ctx.fillRect(hole.x - MOLE_WIDTH / 2, hole.y - mole.yOffset, MOLE_WIDTH, MOLE_HEIGHT);
             }
-            
-            if (mole.state === 'hit') {
-               ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-               ctx.fillRect(hole.x - MOLE_WIDTH / 2, hole.y - mole.yOffset, MOLE_WIDTH, MOLE_HEIGHT);
-            }
+            // Removed the white flash rect block completely
             ctx.restore();
           }
 
@@ -359,7 +355,6 @@ const WhackAPerv = ({ onExit }) => {
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying, gameOver, resetKey]);
 
-  // Removed the alert() pop up completely 
   const triggerGameOver = async () => {
     setGameOver(true);
     setIsPlaying(false);
@@ -397,7 +392,7 @@ const WhackAPerv = ({ onExit }) => {
         
         {isPlaying && score === 0 && !gameOver && (
             <div className="pulse" style={{
-                position: 'absolute', top: '75%', width: '100%', textAlign: 'center', 
+                position: 'absolute', top: '82%', width: '100%', textAlign: 'center', 
                 pointerEvents: 'none', color: '#ff00ff', textShadow: '2px 2px #000',
                 fontFamily: '"Press Start 2P"', fontSize: '1rem', lineHeight: '1.5'
             }}>
