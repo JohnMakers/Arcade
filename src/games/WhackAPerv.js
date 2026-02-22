@@ -76,6 +76,16 @@ const WhackAPerv = ({ onExit }) => {
     gameState.current.holes = holes;
   }, []);
 
+  // --- FIX 1: Auto-start game after the GameUI 3-second countdown ---
+  useEffect(() => {
+    if (!isPlaying && !gameOver) {
+      const timer = setTimeout(() => {
+        setIsPlaying(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isPlaying, gameOver, resetKey]);
+
   // Input Handling
   useEffect(() => {
     const handleInput = (e) => {
@@ -85,7 +95,6 @@ const WhackAPerv = ({ onExit }) => {
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
       
-      // Calculate scaled coordinates to support responsive sizing
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
 
@@ -121,17 +130,14 @@ const WhackAPerv = ({ onExit }) => {
   const handleWhack = (x, y) => {
     const state = gameState.current;
     
-    // Spawn visual tap effect
     spawnParticles(x, y, '#ffffff', 5);
 
-    // Check collision from top to bottom (reverse order to hit foreground first)
     for (let i = state.moles.length - 1; i >= 0; i--) {
       const mole = state.moles[i];
       if (mole.state === 'hit' || mole.state === 'hiding') continue;
 
       const hole = state.holes[mole.holeIdx];
       
-      // Hitbox logic
       const hitX = x >= hole.x - MOLE_WIDTH / 2 && x <= hole.x + MOLE_WIDTH / 2;
       const hitY = y >= hole.y - mole.yOffset && y <= hole.y;
 
@@ -139,17 +145,14 @@ const WhackAPerv = ({ onExit }) => {
         mole.state = 'hit';
         
         if (mole.type === 'pepe') {
-          // Hit friendly Pepe = Instant Death
           triggerGameOver("YOU HIT A FREN!");
           spawnParticles(x, y, '#ff0000', 20);
         } else {
-          // Hit Perv = Score
           state.score += 1;
           setScore(state.score);
           spawnParticles(x, y, '#00ff00', 10);
           spawnText(hole.x, hole.y - 50, "+1", '#00ff00');
           
-          // Progressive Difficulty
           state.spawnInterval = Math.max(400, 1200 - state.score * 30);
           state.maxStayTime = Math.max(300, 1000 - state.score * 25);
           state.riseSpeed = Math.min(600, 150 + state.score * 15);
@@ -184,7 +187,6 @@ const WhackAPerv = ({ onExit }) => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // Reset State
     gameState.current = {
       ...gameState.current,
       lives: 3,
@@ -203,15 +205,12 @@ const WhackAPerv = ({ onExit }) => {
 
     const loop = (time) => {
       const state = gameState.current;
-      const dt = Math.min((time - state.lastTime) / 1000, 0.1); // Delta time in seconds
+      const dt = Math.min((time - state.lastTime) / 1000, 0.1); 
       state.lastTime = time;
 
-      if (!isPlaying || gameOver) {
-        animationId = requestAnimationFrame(loop);
-        return;
-      }
-
-      // Clear Canvas
+      // --- FIX 2: Draw Background & Holes regardless of playing state ---
+      
+      // 1. Draw Background
       ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -225,32 +224,7 @@ const WhackAPerv = ({ onExit }) => {
          ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       }
 
-      // Spawn Logic
-      if (time - state.lastSpawnTime > state.spawnInterval) {
-        const inactiveHoles = state.holes.map((h, i) => ({...h, idx: i})).filter(h => !h.active);
-        
-        if (inactiveHoles.length > 0) {
-          const randomHole = inactiveHoles[Math.floor(Math.random() * inactiveHoles.length)];
-          
-          // Determine type (70% Diddy, 20% Epstein, 10% Pepe)
-          const roll = Math.random();
-          let type = 'diddy';
-          if (roll > 0.9) type = 'pepe';
-          else if (roll > 0.7) type = 'epstein';
-
-          state.moles.push({
-            holeIdx: randomHole.idx,
-            type: type,
-            state: 'rising', // rising, up, hiding, hit
-            yOffset: 0,
-            timer: 0
-          });
-          state.holes[randomHole.idx].active = true;
-          state.lastSpawnTime = time;
-        }
-      }
-
-      // Draw Holes (Back half)
+      // 2. Draw Holes (Back half)
       state.holes.forEach(hole => {
         ctx.fillStyle = '#000';
         ctx.beginPath();
@@ -258,67 +232,112 @@ const WhackAPerv = ({ onExit }) => {
         ctx.fill();
       });
 
-      // Update and Draw Moles
-      for (let i = state.moles.length - 1; i >= 0; i--) {
-        const mole = state.moles[i];
-        const hole = state.holes[mole.holeIdx];
+      // 3. GAME LOGIC & CHARACTERS (Only update if playing)
+      if (isPlaying && !gameOver) {
+          // Spawn Logic
+          if (time - state.lastSpawnTime > state.spawnInterval) {
+            const inactiveHoles = state.holes.map((h, i) => ({...h, idx: i})).filter(h => !h.active);
+            
+            if (inactiveHoles.length > 0) {
+              const randomHole = inactiveHoles[Math.floor(Math.random() * inactiveHoles.length)];
+              
+              const roll = Math.random();
+              let type = 'diddy';
+              if (roll > 0.9) type = 'pepe';
+              else if (roll > 0.7) type = 'epstein';
 
-        if (mole.state === 'rising') {
-          mole.yOffset += state.riseSpeed * dt;
-          if (mole.yOffset >= MOLE_HEIGHT) {
-            mole.yOffset = MOLE_HEIGHT;
-            mole.state = 'up';
-          }
-        } else if (mole.state === 'up') {
-          mole.timer += dt * 1000;
-          if (mole.timer >= state.maxStayTime) mole.state = 'hiding';
-        } else if (mole.state === 'hiding') {
-          mole.yOffset -= state.riseSpeed * dt;
-          if (mole.yOffset <= 0) {
-            // Missed a perv!
-            if (mole.type !== 'pepe') {
-              state.lives -= 1;
-              spawnText(hole.x, hole.y - 20, "MISSED!", '#ff0000');
-              if (state.lives <= 0) triggerGameOver();
+              state.moles.push({
+                holeIdx: randomHole.idx,
+                type: type,
+                state: 'rising',
+                yOffset: 0,
+                timer: 0
+              });
+              state.holes[randomHole.idx].active = true;
+              state.lastSpawnTime = time;
             }
-            hole.active = false;
-            state.moles.splice(i, 1);
-            continue;
           }
-        } else if (mole.state === 'hit') {
-           mole.yOffset -= (state.riseSpeed * 2) * dt; 
-           if (mole.yOffset <= 0) {
-             hole.active = false;
-             state.moles.splice(i, 1);
-             continue;
-           }
-        }
 
-        // Draw Character with Clipping Mask to hide lower half
-        ctx.save();
-        ctx.beginPath();
-        // Clip area above the hole
-        ctx.rect(hole.x - HOLE_WIDTH, hole.y - MOLE_HEIGHT - 20, HOLE_WIDTH * 2, MOLE_HEIGHT + 20);
-        ctx.clip();
+          // Update and Draw Moles
+          for (let i = state.moles.length - 1; i >= 0; i--) {
+            const mole = state.moles[i];
+            const hole = state.holes[mole.holeIdx];
 
-        const sprite = state.sprites[mole.type];
-        if (sprite) {
-           ctx.drawImage(sprite, hole.x - MOLE_WIDTH / 2, hole.y - mole.yOffset, MOLE_WIDTH, MOLE_HEIGHT);
-        } else {
-           // Fallbacks
-           ctx.fillStyle = mole.type === 'pepe' ? '#00ff00' : (mole.type === 'diddy' ? '#ff00ff' : '#aa00ff');
-           ctx.fillRect(hole.x - MOLE_WIDTH / 2, hole.y - mole.yOffset, MOLE_WIDTH, MOLE_HEIGHT);
-        }
-        
-        // Draw hit flash
-        if (mole.state === 'hit') {
-           ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-           ctx.fillRect(hole.x - MOLE_WIDTH / 2, hole.y - mole.yOffset, MOLE_WIDTH, MOLE_HEIGHT);
-        }
-        ctx.restore();
-      }
+            if (mole.state === 'rising') {
+              mole.yOffset += state.riseSpeed * dt;
+              if (mole.yOffset >= MOLE_HEIGHT) {
+                mole.yOffset = MOLE_HEIGHT;
+                mole.state = 'up';
+              }
+            } else if (mole.state === 'up') {
+              mole.timer += dt * 1000;
+              if (mole.timer >= state.maxStayTime) mole.state = 'hiding';
+            } else if (mole.state === 'hiding') {
+              mole.yOffset -= state.riseSpeed * dt;
+              if (mole.yOffset <= 0) {
+                if (mole.type !== 'pepe') {
+                  state.lives -= 1;
+                  spawnText(hole.x, hole.y - 20, "MISSED!", '#ff0000');
+                  if (state.lives <= 0) triggerGameOver();
+                }
+                hole.active = false;
+                state.moles.splice(i, 1);
+                continue;
+              }
+            } else if (mole.state === 'hit') {
+               mole.yOffset -= (state.riseSpeed * 2) * dt; 
+               if (mole.yOffset <= 0) {
+                 hole.active = false;
+                 state.moles.splice(i, 1);
+                 continue;
+               }
+            }
 
-      // Draw Holes (Front lip for depth)
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(hole.x - HOLE_WIDTH, hole.y - MOLE_HEIGHT - 20, HOLE_WIDTH * 2, MOLE_HEIGHT + 20);
+            ctx.clip();
+
+            const sprite = state.sprites[mole.type];
+            if (sprite) {
+               ctx.drawImage(sprite, hole.x - MOLE_WIDTH / 2, hole.y - mole.yOffset, MOLE_WIDTH, MOLE_HEIGHT);
+            } else {
+               ctx.fillStyle = mole.type === 'pepe' ? '#00ff00' : (mole.type === 'diddy' ? '#ff00ff' : '#aa00ff');
+               ctx.fillRect(hole.x - MOLE_WIDTH / 2, hole.y - mole.yOffset, MOLE_WIDTH, MOLE_HEIGHT);
+            }
+            
+            if (mole.state === 'hit') {
+               ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+               ctx.fillRect(hole.x - MOLE_WIDTH / 2, hole.y - mole.yOffset, MOLE_WIDTH, MOLE_HEIGHT);
+            }
+            ctx.restore();
+          }
+
+          // Update and Draw Particles
+          for (let i = state.particles.length - 1; i >= 0; i--) {
+            const p = state.particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= dt;
+            
+            ctx.globalAlpha = Math.max(0, p.life);
+            if (p.text) {
+              ctx.font = '20px "Press Start 2P"';
+              ctx.fillStyle = p.color;
+              ctx.textAlign = 'center';
+              ctx.fillText(p.text, p.x, p.y);
+            } else {
+              ctx.fillStyle = p.color;
+              ctx.fillRect(p.x, p.y, 4, 4);
+            }
+            ctx.globalAlpha = 1.0;
+
+            if (p.life <= 0) state.particles.splice(i, 1);
+          }
+      } // End of isPlaying logic
+
+      // 4. Draw Holes (Front lip for depth)
+      // Drawn outside the playing check so the empty board looks 3D during countdown
       state.holes.forEach(hole => {
         ctx.beginPath();
         ctx.ellipse(hole.x, hole.y, HOLE_WIDTH / 2, HOLE_HEIGHT / 2, 0, 0, Math.PI);
@@ -327,41 +346,19 @@ const WhackAPerv = ({ onExit }) => {
         ctx.stroke();
       });
 
-      // Update and Draw Particles
-      for (let i = state.particles.length - 1; i >= 0; i--) {
-        const p = state.particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= dt;
-        
-        ctx.globalAlpha = Math.max(0, p.life);
-        if (p.text) {
-          ctx.font = '20px "Press Start 2P"';
-          ctx.fillStyle = p.color;
-          ctx.textAlign = 'center';
-          ctx.fillText(p.text, p.x, p.y);
-        } else {
-          ctx.fillStyle = p.color;
-          ctx.fillRect(p.x, p.y, 4, 4);
-        }
-        ctx.globalAlpha = 1.0;
-
-        if (p.life <= 0) state.particles.splice(i, 1);
-      }
-
-      // Draw HUD (Hearts)
+      // 5. Draw HUD (Hearts)
       for(let i=0; i<3; i++) {
          ctx.fillStyle = i < state.lives ? '#ff0000' : '#444444';
          ctx.font = '24px serif';
          ctx.fillText('❤', 30 + i * 35, 40);
       }
 
+      // Always request next frame unless the component unmounts
       animationId = requestAnimationFrame(loop);
     };
 
-    if (isPlaying && !gameOver) {
-      animationId = requestAnimationFrame(loop);
-    }
+    // Kick off the loop immediately to render the starting background
+    animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying, gameOver, resetKey]);
 
@@ -370,7 +367,6 @@ const WhackAPerv = ({ onExit }) => {
     setIsPlaying(false);
     
     if (reason) {
-      // Small delay to allow particle text to show before screen locks
       setTimeout(() => {
         alert(reason); 
       }, 100);
@@ -396,8 +392,6 @@ const WhackAPerv = ({ onExit }) => {
                 setGameOver(false); 
                 setScore(0);
                 setResetKey(prev => prev + 1); 
-                // Set playing to true immediately to bypass countdown, or let GameUI handle it
-                setTimeout(() => setIsPlaying(true), 3000); // 3 sec for countdown sync
             }} 
             onExit={onExit} 
             gameId="whackaperv" 
@@ -408,11 +402,13 @@ const WhackAPerv = ({ onExit }) => {
             height={CANVAS_HEIGHT} 
             style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'url(assets/wap_mallet.png), crosshair' }} 
         />
-        {!isPlaying && !gameOver && (
-            <div style={{
-                position: 'absolute', top: '40%', width: '100%', textAlign: 'center', 
+        
+        {/* FIX 3: Instructions appear only when playing and disappear after first point */}
+        {isPlaying && score === 0 && !gameOver && (
+            <div className="pulse" style={{
+                position: 'absolute', top: '75%', width: '100%', textAlign: 'center', 
                 pointerEvents: 'none', color: '#ff00ff', textShadow: '2px 2px #000',
-                fontFamily: '"Press Start 2P"'
+                fontFamily: '"Press Start 2P"', fontSize: '1rem', lineHeight: '1.5'
             }}>
                 WHACK THE PERVS<br/><br/>
                 DON'T HIT PEPE
