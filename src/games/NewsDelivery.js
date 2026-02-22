@@ -10,23 +10,11 @@ const NewsDelivery = ({ onExit }) => {
   const { username, address } = useContext(UserContext);
 
   const [score, setScore] = useState(0);
-  const [ammo, setAmmo] = useState(10); // Start with 10 papers
+  const [ammo, setAmmo] = useState(10); 
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [resetKey, setResetKey] = useState(0);
-
-  useEffect(() => {
-    let timer;
-    if (!isPlaying && !gameOver) {
-        timer = setTimeout(() => {
-            setShowInstructions(true);
-        }, 3000); 
-    } else {
-        setShowInstructions(false);
-    }
-    return () => clearTimeout(timer);
-  }, [isPlaying, gameOver]);  
 
   // --- CONFIGURATION ---
   const CANVAS_WIDTH = 500;
@@ -37,9 +25,9 @@ const NewsDelivery = ({ onExit }) => {
 
   const gameState = useRef({
     player: { x: CANVAS_WIDTH / 2, y: 650, w: 50, h: 50, targetX: CANVAS_WIDTH / 2 },
-    entities: [], // houses, obstacles, ammo
-    papers: [],   // thrown papers
-    particles: [], // text floaters or explosions
+    entities: [], 
+    papers: [],   
+    particles: [], 
     speed: INITIAL_SPEED,
     score: 0,
     ammo: 10,
@@ -66,11 +54,30 @@ const NewsDelivery = ({ onExit }) => {
     loadSprite('ammo', ASSETS.ND_AMMO);
   }, []);
 
-  // Controls: Drag to steer, tap edges to throw
+  // Timer for Instructions (Waits for GameUI's 3-second countdown)
+  useEffect(() => {
+    let timer;
+    if (!isPlaying && !gameOver) {
+        timer = setTimeout(() => {
+            setShowInstructions(true);
+        }, 3000); 
+    } else {
+        setShowInstructions(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isPlaying, gameOver]);
+
+  // Controls: Drag to steer, tap edges to throw, tap to start
   useEffect(() => {
     const handlePointer = (e) => {
-      if (!isPlaying || gameOver) return;
+      if (gameOver) return;
       if (e.target.closest('button')) return;
+
+      // Wait for the tap to start the game after instructions appear
+      if (!isPlaying) {
+          if (showInstructions) setIsPlaying(true);
+          return;
+      }
       
       let clientX;
       if (e.type.includes('touch')) {
@@ -83,8 +90,6 @@ const NewsDelivery = ({ onExit }) => {
       const scaleX = CANVAS_WIDTH / rect.width;
       const canvasX = (clientX - rect.left) * scaleX;
 
-      // Determine intent: Steer or Throw?
-      // If tap is far left or far right, throw. Otherwise, steer.
       if (e.type === 'mousedown' || e.type === 'touchstart') {
           if (canvasX < ROAD_LEFT + 20) {
               throwPaper(-1); // Throw Left
@@ -94,7 +99,6 @@ const NewsDelivery = ({ onExit }) => {
               gameState.current.player.targetX = canvasX;
           }
       } else if (e.type === 'mousemove' || e.type === 'touchmove') {
-          // Continuous steering if dragging in the middle
           if (canvasX >= ROAD_LEFT && canvasX <= ROAD_RIGHT) {
               gameState.current.player.targetX = canvasX;
           }
@@ -115,8 +119,8 @@ const NewsDelivery = ({ onExit }) => {
             x: state.player.x,
             y: state.player.y,
             w: 20, h: 20,
-            vx: direction * 8, // Move left/right
-            vy: -10, // Move up screen
+            vx: direction * 8, 
+            vy: -10, 
             active: true
         });
     };
@@ -137,7 +141,7 @@ const NewsDelivery = ({ onExit }) => {
         wrapper.removeEventListener('touchmove', handlePointer);
       }
     };
-  }, [isPlaying, gameOver]);
+  }, [isPlaying, gameOver, showInstructions]);
 
   // Core Game Loop
   useEffect(() => {
@@ -145,7 +149,7 @@ const NewsDelivery = ({ onExit }) => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // Reset Game State
+    // Reset Game State on mount or restart
     gameState.current = {
       ...gameState.current,
       player: { x: CANVAS_WIDTH / 2, y: 650, w: 40, h: 60, targetX: CANVAS_WIDTH / 2 },
@@ -161,107 +165,88 @@ const NewsDelivery = ({ onExit }) => {
       const dt = Math.min((time - state.lastTime) / 16.667, 2.0);
       state.lastTime = time;
 
-      if (!isPlaying || gameOver) {
-        animationId = requestAnimationFrame(loop);
-        return;
-      }
-
-      // --- PHYSICS & SPAWNING ---
-      state.distance += state.speed * dt;
-      
-      // Speed scaling (Level up every 1000 units)
-      state.speed = INITIAL_SPEED + Math.floor(state.distance / 1000);
-
-      // Smooth player movement
-      state.player.x += (state.player.targetX - state.player.x) * 0.2 * dt;
-      // Clamp to road
-      state.player.x = Math.max(ROAD_LEFT + state.player.w/2, Math.min(ROAD_RIGHT - state.player.w/2, state.player.x));
-
-      // Spawner logic
-      if (Math.random() < 0.03 * dt) { // Entity spawn rate
-          spawnEntity(state);
-      }
-
-      // Update Entities
-      state.entities.forEach(ent => {
-          ent.y += state.speed * dt;
+      // --- 1. PHYSICS & SPAWNING (ONLY WHEN PLAYING) ---
+      if (isPlaying && !gameOver) {
+          state.distance += state.speed * dt;
           
-          // Player collision (Obstacles & Ammo)
-          if (ent.y > state.player.y - ent.h && ent.y < state.player.y + state.player.h) {
-              if (Math.abs(ent.x - state.player.x) < (ent.w/2 + state.player.w/2)) {
-                  if (ent.type === 'VAN' || ent.type === 'POTHOLE') {
-                      triggerGameOver();
-                  } else if (ent.type === 'AMMO' && ent.active) {
-                      ent.active = false;
-                      state.ammo += 5;
-                      setAmmo(state.ammo);
-                      spawnText(ent.x, ent.y, "+5 $NEWS", "cyan");
+          state.speed = INITIAL_SPEED + Math.floor(state.distance / 1000);
+
+          state.player.x += (state.player.targetX - state.player.x) * 0.2 * dt;
+          state.player.x = Math.max(ROAD_LEFT + state.player.w/2, Math.min(ROAD_RIGHT - state.player.w/2, state.player.x));
+
+          if (Math.random() < 0.03 * dt) { 
+              spawnEntity(state);
+          }
+
+          state.entities.forEach(ent => {
+              ent.y += state.speed * dt;
+              
+              if (ent.y > state.player.y - ent.h && ent.y < state.player.y + state.player.h) {
+                  if (Math.abs(ent.x - state.player.x) < (ent.w/2 + state.player.w/2)) {
+                      if (ent.type === 'VAN' || ent.type === 'POTHOLE') {
+                          triggerGameOver();
+                      } else if (ent.type === 'AMMO' && ent.active) {
+                          ent.active = false;
+                          state.ammo += 5;
+                          setAmmo(state.ammo);
+                          spawnText(ent.x, ent.y, "+5 $NEWS", "cyan");
+                      }
                   }
               }
-          }
-      });
+          });
 
-      // Update Papers
-      state.papers.forEach(p => {
-          p.x += p.vx * dt;
-          p.y += p.vy * dt;
+          state.papers.forEach(p => {
+              p.x += p.vx * dt;
+              p.y += p.vy * dt;
 
-          // Check Paper vs House collisions
-          if (p.active) {
-              state.entities.filter(e => e.type === 'HOUSE_GREEN' || e.type === 'HOUSE_RED').forEach(house => {
-                  if (p.x > house.x - house.w/2 && p.x < house.x + house.w/2 &&
-                      p.y > house.y - house.h/2 && p.y < house.y + house.h/2) {
-                      
-                      p.active = false;
-                      house.hit = true;
+              if (p.active) {
+                  state.entities.filter(e => e.type === 'HOUSE_GREEN' || e.type === 'HOUSE_RED').forEach(house => {
+                      if (p.x > house.x - house.w/2 && p.x < house.x + house.w/2 &&
+                          p.y > house.y - house.h/2 && p.y < house.y + house.h/2) {
+                          
+                          p.active = false;
+                          house.hit = true;
 
-                      if (house.type === 'HOUSE_GREEN') {
-                          state.score += 10;
-                          spawnText(house.x, house.y, "+10 HODL", "lime");
-                      } else {
-                          state.score += 20;
-                          spawnText(house.x, house.y, "FUD REKT!", "red");
+                          if (house.type === 'HOUSE_GREEN') {
+                              state.score += 10;
+                              spawnText(house.x, house.y, "+10 HODL", "lime");
+                          } else {
+                              state.score += 20;
+                              spawnText(house.x, house.y, "FUD REKT!", "red");
+                          }
+                          setScore(state.score);
                       }
-                      setScore(state.score);
-                  }
-              });
-          }
-      });
+                  });
+              }
+          });
 
-      // Cleanup offscreen
-      state.entities = state.entities.filter(e => e.y < CANVAS_HEIGHT + 100 && e.active !== false);
-      state.papers = state.papers.filter(p => p.y > -50 && p.x > -50 && p.x < CANVAS_WIDTH + 50 && p.active);
+          state.entities = state.entities.filter(e => e.y < CANVAS_HEIGHT + 100 && e.active !== false);
+          state.papers = state.papers.filter(p => p.y > -50 && p.x > -50 && p.x < CANVAS_WIDTH + 50 && p.active);
+      }
 
-      // --- RENDERING ---
-      // Draw Grass
+      // --- 2. RENDERING (ALWAYS RUNS) ---
       ctx.fillStyle = '#1e3f20'; 
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       
-      // Draw Road
       ctx.fillStyle = '#333';
       ctx.fillRect(ROAD_LEFT, 0, ROAD_RIGHT - ROAD_LEFT, CANVAS_HEIGHT);
 
-      // Road markings (scrolling)
       ctx.fillStyle = '#fff';
       for(let i = 0; i < CANVAS_HEIGHT; i += 60) {
           const offset = state.distance % 60;
           ctx.fillRect(CANVAS_WIDTH/2 - 2, i + offset, 4, 30);
       }
 
-      // Draw Entities
       state.entities.forEach(ent => {
           drawSprite(ctx, state, ent.texture, ent.x - ent.w/2, ent.y - ent.h/2, ent.w, ent.h, ent.hit ? 'orange' : ent.color);
       });
 
-      // Draw Papers
       state.papers.forEach(p => {
           drawSprite(ctx, state, 'paper', p.x - p.w/2, p.y - p.h/2, p.w, p.h, 'white');
       });
 
-      // Draw Player
       drawSprite(ctx, state, 'hero', state.player.x - state.player.w/2, state.player.y - state.player.h/2, state.player.w, state.player.h, 'lime');
 
-      // Draw Particles (Text)
       state.particles.forEach(p => {
           p.y -= 2 * dt;
           p.life -= dt;
@@ -279,7 +264,7 @@ const NewsDelivery = ({ onExit }) => {
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [isPlaying, resetKey]);
+  }, [isPlaying, resetKey, gameOver]);
 
   // --- HELPERS ---
 
@@ -298,7 +283,7 @@ const NewsDelivery = ({ onExit }) => {
       let x, type, texture, color, w, h;
 
       if (rand < 0.4) {
-          // Spawn House (Left or Right)
+          // Spawn House
           const isLeft = Math.random() < 0.5;
           x = isLeft ? ROAD_LEFT / 2 : CANVAS_WIDTH - (ROAD_LEFT / 2);
           const isGreen = Math.random() < 0.7;
@@ -307,7 +292,7 @@ const NewsDelivery = ({ onExit }) => {
           color = isGreen ? 'lime' : 'red';
           w = 60; h = 60;
       } else if (rand < 0.8) {
-          // Spawn Obstacle on road
+          // Spawn Obstacle
           x = ROAD_LEFT + 20 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 40);
           const isVan = Math.random() < 0.5;
           type = isVan ? 'VAN' : 'POTHOLE';
@@ -316,7 +301,7 @@ const NewsDelivery = ({ onExit }) => {
           w = isVan ? 50 : 30;
           h = isVan ? 80 : 30;
       } else {
-          // Spawn Ammo on road
+          // Spawn Ammo
           x = ROAD_LEFT + 20 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 40);
           type = 'AMMO';
           texture = 'ammo';
@@ -354,7 +339,8 @@ const NewsDelivery = ({ onExit }) => {
             isPlaying={isPlaying} 
             onRestart={() => { 
                 setGameOver(false); 
-                setIsPlaying(true); 
+                setIsPlaying(false); 
+                setShowInstructions(false);
                 setScore(0); 
                 setAmmo(10);
                 setResetKey(prev => prev + 1); 
@@ -377,15 +363,15 @@ const NewsDelivery = ({ onExit }) => {
             style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'crosshair' }} 
         />
         
-        {!isPlaying && !gameOver && (
-            <div style={{
+        {showInstructions && !isPlaying && !gameOver && (
+            <div className="pulse" style={{
                 position: 'absolute', top: '40%', width: '100%', textAlign: 'center', 
                 pointerEvents: 'none', color: 'lime', textShadow: '2px 2px #000',
-                fontFamily: '"Press Start 2P"', lineHeight: '1.5'
+                fontFamily: '"Press Start 2P"', lineHeight: '1.5', zIndex: 30
             }}>
                 DRAG TO STEER<br/>
                 TAP EDGES TO THROW<br/><br/>
-                DELIVER THE $NEWS!
+                TAP TO START!
             </div>
         )}
     </div>
