@@ -319,12 +319,12 @@ const NewsCheck = ({ onExit }) => {
           ctx.drawImage(state.sprites['pepe'], CANVAS_WIDTH/2 - 75, 40 + hoverY, 150, 150);
       }
 
-      // 3. Draw Indicators (Scaled down slightly and moved to bottom corners)
+      // 3. Draw Indicators 
       const ICON_SIZE = 130;
-      const ICON_Y = 600; // Pushed down safely below the paper limits
-      ctx.globalAlpha = 0.6; // Slightly more transparent so they don't distract
+      const ICON_Y = 600; 
+      ctx.globalAlpha = 0.6; 
       
-      // Trash on the absolute left edge
+      // Trash on the left
       if (state.sprites['trash']) {
           ctx.drawImage(state.sprites['trash'], 10, ICON_Y, ICON_SIZE, ICON_SIZE);
       } else { 
@@ -332,7 +332,7 @@ const NewsCheck = ({ onExit }) => {
           ctx.fillText("🗑️", 40, ICON_Y + ICON_SIZE/2); 
       }
       
-      // Printer on the absolute right edge
+      // Printer on the right
       if (state.sprites['print']) {
           ctx.drawImage(state.sprites['print'], CANVAS_WIDTH - ICON_SIZE - 10, ICON_Y, ICON_SIZE, ICON_SIZE);
       } else { 
@@ -345,10 +345,9 @@ const NewsCheck = ({ onExit }) => {
       
       if (p) {
           if (state.status === 'PLAYING') {
-              if (!state.isDragging) {
-                 state.timer -= state.timerDrainRate * dt;
-                 if (state.timer <= 0) triggerGameOver();
-              }
+              // Timer now drains constantly, regardless of touch interaction
+              state.timer -= state.timerDrainRate * dt;
+              if (state.timer <= 0) triggerGameOver();
           } 
           else if (state.status === 'GAMEOVER') {
               p.vy += 0.8 * dt; 
