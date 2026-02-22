@@ -436,7 +436,7 @@ const WhackAPerv = ({ onExit }) => {
             ref={canvasRef} 
             width={CANVAS_WIDTH} 
             height={CANVAS_HEIGHT} 
-            {/* NEW: Hide the default cursor so only our canvas mallet shows */}
+            /* NEW: Hide the default cursor so only our canvas mallet shows */
             style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'none' }} 
         />
         
