@@ -4,45 +4,65 @@ import { supabase } from '../lib/supabaseClient';
 import { UserContext } from '../context/UserContext';
 import GameUI from '../components/GameUI';
 
+// --- EXPANDED 50 FUD HEADLINES ---
 const FUD_HEADLINES = [
-    "Crypto is Dead Again",
-    "Government Bans Frogs",
-    "SEC Investigates Memes",
-    "Dev Sold the Bag",
-    "Rugpull Imminent!",
-    "Binance Delists Everything",
-    "Taxes Raised to 99%",
-    "Internet to be Shutdown",
-    "Bear Market Extended 10 Yrs"
+    "Crypto is Dead Again", "Government Bans Frogs", "SEC Investigates Memes", 
+    "Dev Sold the Bag", "Rugpull Imminent!", "Binance Delists Everything", 
+    "Taxes Raised to 99%", "Internet to be Shutdown", "Bear Market Extended 10 Yrs",
+    "Quantum Computers Break BTC", "Tether Unbacked, CEO Missing", "Vitalik Quits Ethereum",
+    "Satoshi Dumps All Coins", "Gas Fees Reach $10,000", "Solana Network Halts (Again)",
+    "Discord Hacked, Apes Stolen", "Jim Cramer Says Buy Crypto", "Anti-Meme Bill Passed",
+    "Exchange Hacked for Billions", "Liquidity Pool Drained", "Smart Contract Exploit Found",
+    "Treasury Wallets Blacklisted", "Hardware Wallet Firm Hacked", "Mining Banned Worldwide",
+    "Stablecoin Depegs to $0.10", "CEO Arrested at Airport", "CEX Pauses Withdrawals",
+    "Mainnet Launch Delayed 5 Yrs", "Airdrop Claim Site is Phishing", "Project Abandons Roadmap",
+    "VCs Dump All Bags", "Token Supply Minted to Infinity", "Website Domain Expires",
+    "Yield Farm APY Drops to 0%", "NFT Floor Price Hits Zero", "Market Cap Drops 90% Overnight",
+    "Influencer Apologizes for Scam", "Wallet App Stealing Seeds", "Central Banks Ban DeFi",
+    "Node Operators Strike", "Audit Failed Security Check", "Metaverse Land Worthless",
+    "Crypto YouTube Channels Deleted", "Whale Moves 100k BTC to CEX", "Gas Limit Reached, Clogged",
+    "Staking Rewards Canceled", "Legal Team Quits Project", "Bridged Assets Frozen",
+    "Developer Wallet Compromised", "It Was All a Ponzi"
 ];
 
+// --- EXPANDED 50 BULL HEADLINES ---
 const BULL_HEADLINES = [
-    "Pepe to the Moon!",
-    "Stakers Getting Rich",
-    "Elon Tweets Pepe",
-    "New ATH Reached!",
-    "Massive Burn Announced",
-    "ETF Approved",
-    "Institutions Buying the Dip",
-    "Normies Fomo In",
-    "Lambos Sold Out Everywhere"
+    "Pepe to the Moon!", "Stakers Getting Rich", "Elon Tweets Pepe", 
+    "New ATH Reached!", "Massive Burn Announced", "Spot ETF Approved", 
+    "Institutions Buying the Dip", "Normies Fomo In", "Lambos Sold Out Everywhere",
+    "Fed Cuts Rates to Zero", "Bitcoin Legal Tender Worldwide", "Super Bowl Ad Features Doge",
+    "China Unbans Crypto", "Saylor Buys the Float", "McDonalds Accepts Meme Coins",
+    "Hacker Returns All Funds", "Binance Lists $PEPE on Spot", "Airdrop Makes Thousands Millionaires",
+    "Apple Integrates Web3 Wallet", "Amazon Adopts Crypto Payments", "Crypto Market Cap Surpasses Gold",
+    "Whales Accumulating Quietly", "Venture Capital Pours Billions In", "Developer Releases V2 Contract",
+    "Gas Fees Hit All-Time Low", "Layer 2 Adoption Skyrockets", "Major Bank Issues Bullish Report",
+    "Sovereign Wealth Fund Buys Crypto", "Presidential Candidate Pro-Crypto", "Staking APY Boosted to 1000%",
+    "Token Supply Capped Definitively", "Partnership with Google Cloud", "DEX Volume Flips CEX Volume",
+    "Mainnet Successfully Launched", "Top Tier Audit Passed 100%", "Meme Coin Flippening Complete",
+    "Celebrity Changes PFP to Pepe", "GameFi Hub Records 1M Players", "Deflationary Tokenomics Kicking In",
+    "Short Squeeze Liquidates Bears", "Golden Cross Confirmed on Weekly", "Tether Fully Backed by Treasuries",
+    "Visa Settles in USDC", "Crypto Wallet Downloads Top Charts", "Tax-Free Crypto Zones Established",
+    "Decentralized Social Media Booming", "Community Votes to Burn Treasury", "Early Investors Diamond Handing",
+    "ZK Proofs Solve Privacy", "We Are All Going to Make It"
 ];
 
 const NewsCheck = ({ onExit }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const playTimeoutRef = useRef(null);
   const { username, address } = useContext(UserContext);
 
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false); // Controls the Intro UI isolation
   const [resetKey, setResetKey] = useState(0);
 
   // Constants
   const CANVAS_WIDTH = 500;
   const CANVAS_HEIGHT = 800;
-  const WARMUP_SCORE = 10; // Headlines turn black after this score
-  const SWIPE_THRESHOLD = 120; // How far to drag to trigger a decision
+  const WARMUP_SCORE = 10; 
+  const SWIPE_THRESHOLD = 120; 
   const PAPER_WIDTH = 300;
   const PAPER_HEIGHT = 350;
 
@@ -51,8 +71,8 @@ const NewsCheck = ({ onExit }) => {
     sprites: {},
     currentPaper: null,
     particles: [],
-    timer: 100, // Percentage of time left to decide
-    timerDrainRate: 0.15, // Speeds up as game progresses
+    timer: 100, 
+    timerDrainRate: 0.15, 
     isDragging: false,
     dragStartX: 0,
     dragStartY: 0,
@@ -77,6 +97,10 @@ const NewsCheck = ({ onExit }) => {
     loadSprite('trash', ASSETS.NC_TRASH);
     loadSprite('print', ASSETS.NC_PRINT);
     loadSprite('pepe', ASSETS.NC_PEPE_BOSS);
+
+    return () => {
+        if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
+    };
   }, []);
 
   const spawnPaper = () => {
@@ -85,69 +109,90 @@ const NewsCheck = ({ onExit }) => {
     const list = isBull ? BULL_HEADLINES : FUD_HEADLINES;
     const text = list[Math.floor(Math.random() * list.length)];
     
-    // Golden papers start appearing after score 5 (15% chance)
     const isGolden = state.score >= 5 && Math.random() < 0.15;
 
     state.currentPaper = {
         text,
         type: isBull ? 'BULL' : 'FUD',
         isGolden,
-        isVerified: false, // For golden double-taps
+        isVerified: false,
         x: CANVAS_WIDTH / 2,
         y: CANVAS_HEIGHT / 2,
         rotation: (Math.random() - 0.5) * 0.2
     };
 
-    // Reset timer, slightly faster based on score
     state.timer = 100;
     state.timerDrainRate = Math.min(0.15 + (state.score * 0.015), 0.8);
     state.offsetX = 0;
     state.offsetY = 0;
   };
 
+  const processSwipe = (offsetX) => {
+    const state = gameState.current;
+    const p = state.currentPaper;
+    if (!p) return;
+
+    if (Math.abs(offsetX) > SWIPE_THRESHOLD) {
+        const swipedRight = offsetX > 0;
+        const guessType = swipedRight ? 'BULL' : 'FUD';
+
+        if (p.isGolden && !p.isVerified) {
+            triggerGameOver(); 
+            return;
+        }
+
+        if (p.type === guessType) {
+            state.score += 1;
+            setScore(state.score);
+            createParticles(
+                swipedRight ? CANVAS_WIDTH : 0, 
+                CANVAS_HEIGHT/2, 
+                swipedRight ? '#00ff00' : '#ff0000'
+            );
+            spawnPaper();
+        } else {
+            triggerGameOver();
+        }
+    } else {
+        state.offsetX = 0;
+    }
+  };
+
   const wrapText = (ctx, text, x, y, maxWidth, lineHeight) => {
     const words = text.split(' ');
     let line = '';
-    let testLine = '';
     let lineArray = [];
 
     for (let n = 0; n < words.length; n++) {
-        testLine += `${words[n]} `;
+        let testLine = line + words[n] + ' ';
         let metrics = ctx.measureText(testLine);
-        let testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
+        if (metrics.width > maxWidth && n > 0) {
             lineArray.push(line);
-            line = `${words[n]} `;
-            testLine = `${words[n]} `;
+            line = words[n] + ' ';
         } else {
-            line += `${words[n]} `;
+            line = testLine;
         }
     }
     lineArray.push(line);
 
-    // Draw lines centered vertically
     const startY = y - ((lineArray.length - 1) * lineHeight) / 2;
     lineArray.forEach((l, i) => {
         ctx.fillText(l.trim(), x, startY + (i * lineHeight));
     });
   };
 
-  // Input Handling
+  // Input Handling (Touch & Mouse)
   useEffect(() => {
     const handlePointerDown = (e) => {
       if (!isPlaying || gameOver) return;
       const state = gameState.current;
-      
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      
       const touchX = (clientX - rect.left) * scaleX;
       
-      // Double Tap Detection
       const now = Date.now();
       if (now - state.lastTapTime < 300) {
           if (state.currentPaper && state.currentPaper.isGolden && !state.currentPaper.isVerified) {
@@ -163,12 +208,11 @@ const NewsCheck = ({ onExit }) => {
 
     const handlePointerMove = (e) => {
       if (!isPlaying || gameOver || !gameState.current.isDragging) return;
-      if (e.cancelable) e.preventDefault(); // Prevent scrolling while swiping
+      if (e.cancelable) e.preventDefault();
       
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
-      
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const touchX = (clientX - rect.left) * scaleX;
       
@@ -179,38 +223,7 @@ const NewsCheck = ({ onExit }) => {
       const state = gameState.current;
       if (!state.isDragging || !state.currentPaper) return;
       state.isDragging = false;
-
-      const p = state.currentPaper;
-
-      // Evaluate Swipe
-      if (Math.abs(state.offsetX) > SWIPE_THRESHOLD) {
-          const swipedRight = state.offsetX > 0;
-          const guessType = swipedRight ? 'BULL' : 'FUD';
-
-          // Golden check
-          if (p.isGolden && !p.isVerified) {
-              triggerGameOver(); // Swiped a golden without verifying!
-              return;
-          }
-
-          if (p.type === guessType) {
-              // Correct!
-              state.score += 1;
-              setScore(state.score);
-              createParticles(
-                  swipedRight ? CANVAS_WIDTH : 0, 
-                  CANVAS_HEIGHT/2, 
-                  swipedRight ? '#00ff00' : '#ff0000'
-              );
-              spawnPaper();
-          } else {
-              // Wrong!
-              triggerGameOver();
-          }
-      } else {
-          // Snap back to center if swipe wasn't far enough
-          state.offsetX = 0;
-      }
+      processSwipe(state.offsetX);
     };
 
     const wrapper = containerRef.current;
@@ -218,7 +231,6 @@ const NewsCheck = ({ onExit }) => {
       wrapper.addEventListener('mousedown', handlePointerDown);
       wrapper.addEventListener('mousemove', handlePointerMove);
       window.addEventListener('mouseup', handlePointerUp);
-      
       wrapper.addEventListener('touchstart', handlePointerDown, { passive: false });
       wrapper.addEventListener('touchmove', handlePointerMove, { passive: false });
       window.addEventListener('touchend', handlePointerUp);
@@ -236,13 +248,40 @@ const NewsCheck = ({ onExit }) => {
     };
   }, [isPlaying, gameOver]);
 
+  // Keyboard Handling
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+        if (!isPlaying || gameOver) return;
+        const state = gameState.current;
+        const p = state.currentPaper;
+        if (!p) return;
+
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            processSwipe(-SWIPE_THRESHOLD - 10);
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            processSwipe(SWIPE_THRESHOLD + 10);
+        } else if (e.key === 'ArrowUp' || e.key === ' ') {
+            e.preventDefault(); 
+            if (p.isGolden && !p.isVerified) {
+                p.isVerified = true;
+                createParticles(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 'yellow');
+            }
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, gameOver]);
+
+
   // Core Game Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // Reset Game State
     gameState.current.score = 0;
     gameState.current.particles = [];
     spawnPaper();
@@ -257,106 +296,93 @@ const NewsCheck = ({ onExit }) => {
 
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      // 1. Draw Background
       if (state.sprites['bg']) {
           ctx.drawImage(state.sprites['bg'], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       } else {
           ctx.fillStyle = '#222';
           ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-          // Conveyor belt placeholder
           ctx.fillStyle = '#111';
           ctx.fillRect(CANVAS_WIDTH/2 - 160, 0, 320, CANVAS_HEIGHT);
       }
 
-      // Draw UI indicators (Left Trash, Right Print)
       ctx.globalAlpha = 0.5;
       if (state.sprites['trash']) ctx.drawImage(state.sprites['trash'], 20, CANVAS_HEIGHT/2 - 40, 80, 80);
-      else { ctx.fillStyle = 'red'; ctx.fillText("🗑️ FUD", 60, CANVAS_HEIGHT/2); }
+      else { ctx.fillStyle = 'red'; ctx.fillText("🗑️", 60, CANVAS_HEIGHT/2); }
       
       if (state.sprites['print']) ctx.drawImage(state.sprites['print'], CANVAS_WIDTH - 100, CANVAS_HEIGHT/2 - 40, 80, 80);
-      else { ctx.fillStyle = 'green'; ctx.fillText("🖨️ PRINT", CANVAS_WIDTH - 60, CANVAS_HEIGHT/2); }
+      else { ctx.fillStyle = 'green'; ctx.fillText("🖨️", CANVAS_WIDTH - 60, CANVAS_HEIGHT/2); }
       ctx.globalAlpha = 1.0;
 
-      // 2. Game Logic
-      if (isPlaying && !gameOver) {
-          // Drain Timer
-          if (!state.isDragging) {
-             state.timer -= state.timerDrainRate * dt;
-             if (state.timer <= 0) {
-                 triggerGameOver();
-             }
+      const p = state.currentPaper;
+      
+      // Paper rendering is active even during the countdown to allow reading
+      if (p && !gameOver) {
+          
+          if (isPlaying) {
+              if (!state.isDragging) {
+                 state.timer -= state.timerDrainRate * dt;
+                 if (state.timer <= 0) {
+                     triggerGameOver();
+                 }
+              }
           }
 
-          // Draw Paper
-          const p = state.currentPaper;
-          if (p) {
-              ctx.save();
-              ctx.translate(p.x + state.offsetX, p.y + state.offsetY);
-              
-              // Rotate slightly based on swipe direction
-              ctx.rotate(p.rotation + (state.offsetX * 0.002));
+          ctx.save();
+          ctx.translate(p.x + state.offsetX, p.y + state.offsetY);
+          ctx.rotate(p.rotation + (state.offsetX * 0.002));
 
-              // Draw Paper Sprite
-              const paperKey = p.isGolden ? 'paper_gold' : 'paper';
-              if (state.sprites[paperKey]) {
-                  ctx.drawImage(state.sprites[paperKey], -PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
-              } else {
-                  ctx.fillStyle = p.isGolden ? '#ffd700' : '#f4f4f4';
-                  ctx.fillRect(-PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
-                  ctx.strokeStyle = '#000';
-                  ctx.strokeRect(-PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
-              }
-
-              // Verification stamp
-              if (p.isGolden && p.isVerified) {
-                  ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
-                  ctx.fillRect(-PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
-              }
-
-              // Draw Text
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.font = '24px "Press Start 2P", cursive';
-              
-              // WARMUP MECHANIC: Colors change to black after WARMUP_SCORE
-              if (state.score < WARMUP_SCORE) {
-                  ctx.fillStyle = p.type === 'FUD' ? '#cc0000' : '#009900';
-              } else {
-                  ctx.fillStyle = '#111'; // Force the user to read!
-              }
-
-              wrapText(ctx, p.text, 0, 0, PAPER_WIDTH - 40, 35);
-
-              // Golden warning
-              if (p.isGolden && !p.isVerified) {
-                  ctx.fillStyle = 'blue';
-                  ctx.font = '14px "Press Start 2P"';
-                  ctx.fillText("DOUBLE TAP!", 0, -PAPER_HEIGHT/2 + 30);
-              } else if (p.isGolden && p.isVerified) {
-                  ctx.fillStyle = 'green';
-                  ctx.font = '16px "Press Start 2P"';
-                  ctx.fillText("VERIFIED", 0, -PAPER_HEIGHT/2 + 30);
-              }
-
-              // Swipe visual feedback (Red/Green overlay based on drag)
-              if (Math.abs(state.offsetX) > 20) {
-                 ctx.globalAlpha = Math.min(Math.abs(state.offsetX) / SWIPE_THRESHOLD, 0.5);
-                 ctx.fillStyle = state.offsetX > 0 ? '#00ff00' : '#ff0000';
-                 ctx.fillRect(-PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
-                 ctx.globalAlpha = 1.0;
-              }
-
-              ctx.restore();
+          const paperKey = p.isGolden ? 'paper_gold' : 'paper';
+          if (state.sprites[paperKey]) {
+              ctx.drawImage(state.sprites[paperKey], -PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
+          } else {
+              ctx.fillStyle = p.isGolden ? '#ffd700' : '#f4f4f4';
+              ctx.fillRect(-PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
+              ctx.strokeStyle = '#000';
+              ctx.strokeRect(-PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
           }
 
-          // Draw Conveyor Timer Bar
-          ctx.fillStyle = '#333';
-          ctx.fillRect(0, CANVAS_HEIGHT - 20, CANVAS_WIDTH, 20);
-          ctx.fillStyle = state.timer > 30 ? '#00ff00' : '#ff0000';
-          ctx.fillRect(0, CANVAS_HEIGHT - 20, (state.timer / 100) * CANVAS_WIDTH, 20);
+          if (p.isGolden && p.isVerified) {
+              ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+              ctx.fillRect(-PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
+          }
+
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = '24px "Press Start 2P", cursive';
+          
+          if (state.score < WARMUP_SCORE) {
+              ctx.fillStyle = p.type === 'FUD' ? '#cc0000' : '#009900';
+          } else {
+              ctx.fillStyle = '#111'; 
+          }
+
+          wrapText(ctx, p.text, 0, 0, PAPER_WIDTH - 40, 35);
+
+          if (p.isGolden && !p.isVerified) {
+              ctx.fillStyle = 'blue';
+              ctx.font = '14px "Press Start 2P"';
+              ctx.fillText("DOUBLE TAP!", 0, -PAPER_HEIGHT/2 + 30);
+          } else if (p.isGolden && p.isVerified) {
+              ctx.fillStyle = 'green';
+              ctx.font = '16px "Press Start 2P"';
+              ctx.fillText("VERIFIED", 0, -PAPER_HEIGHT/2 + 30);
+          }
+
+          if (Math.abs(state.offsetX) > 20) {
+             ctx.globalAlpha = Math.min(Math.abs(state.offsetX) / SWIPE_THRESHOLD, 0.5);
+             ctx.fillStyle = state.offsetX > 0 ? '#00ff00' : '#ff0000';
+             ctx.fillRect(-PAPER_WIDTH/2, -PAPER_HEIGHT/2, PAPER_WIDTH, PAPER_HEIGHT);
+             ctx.globalAlpha = 1.0;
+          }
+
+          ctx.restore();
       }
 
-      // Draw Particles
+      ctx.fillStyle = '#333';
+      ctx.fillRect(0, CANVAS_HEIGHT - 20, CANVAS_WIDTH, 20);
+      ctx.fillStyle = state.timer > 30 ? '#00ff00' : '#ff0000';
+      ctx.fillRect(0, CANVAS_HEIGHT - 20, (state.timer / 100) * CANVAS_WIDTH, 20);
+
       state.particles.forEach((p) => {
           p.x += p.vx * dt;
           p.y += p.vy * dt;
@@ -375,7 +401,7 @@ const NewsCheck = ({ onExit }) => {
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [resetKey, isPlaying]);
+  }, [resetKey]); // Removed isPlaying dependency so the loop persists during countdown
 
   const createParticles = (x, y, color) => {
       for(let i=0; i<15; i++) {
@@ -394,7 +420,6 @@ const NewsCheck = ({ onExit }) => {
       if (gameOver) return;
       const state = gameState.current;
       
-      // Fall animation for current paper
       if (state.currentPaper) {
          state.currentPaper.y += 200;
          state.currentPaper.rotation += 1;
@@ -413,24 +438,37 @@ const NewsCheck = ({ onExit }) => {
   };
 
   const startGame = () => {
-      setIsPlaying(true);
+      setHasStarted(true); // Mounts GameUI to trigger the countdown
+      // Wait exactly 3 seconds for GameUI to finish counting down, then enable play
+      playTimeoutRef.current = setTimeout(() => {
+          setIsPlaying(true);
+      }, 3000); 
   };
 
   return (
     <div ref={containerRef} className="game-wrapper" style={{ touchAction: 'none' }}>
-        <GameUI 
-            score={score} 
-            gameOver={gameOver} 
-            isPlaying={isPlaying} 
-            onRestart={() => { 
-                setGameOver(false); 
-                setIsPlaying(true); 
-                setScore(0); 
-                setResetKey(prev => prev + 1); 
-            }} 
-            onExit={onExit} 
-            gameId="newscheck" 
-        />
+        
+        {/* Game UI is heavily isolated behind hasStarted to prevent countdown overlaps */}
+        {hasStarted && (
+            <GameUI 
+                score={score} 
+                gameOver={gameOver} 
+                isPlaying={isPlaying} 
+                onRestart={() => { 
+                    setGameOver(false); 
+                    setIsPlaying(false); // Make sure we hit the countdown again
+                    setScore(0); 
+                    setResetKey(prev => prev + 1); 
+                    
+                    if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
+                    playTimeoutRef.current = setTimeout(() => {
+                        setIsPlaying(true);
+                    }, 3000);
+                }} 
+                onExit={onExit} 
+                gameId="newscheck" 
+            />
+        )}
         
         <canvas 
             ref={canvasRef} 
@@ -439,20 +477,32 @@ const NewsCheck = ({ onExit }) => {
             style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'grab' }} 
         />
         
-        {!isPlaying && !gameOver && (
+        {!hasStarted && (
             <div style={{
-                position: 'absolute', top: '25%', width: '100%', textAlign: 'center', 
-                pointerEvents: 'none', color: '#fff', textShadow: '2px 2px #000',
-                fontFamily: '"Press Start 2P"', background: 'rgba(0,0,0,0.6)', padding: '20px 0'
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                background: 'rgba(0,0,0,0.95)', zIndex: 50, pointerEvents: 'auto',
+                boxSizing: 'border-box', padding: '20px'
             }}>
-                <div style={{color: 'yellow', marginBottom: 15, fontSize: '1.2rem'}}>$NEWS CHECK FRENZY</div>
-                <div style={{fontSize: '0.8rem', lineHeight: '2'}}>
-                    Swipe Left = <span style={{color: 'red'}}>FUD 🗑️</span><br/>
-                    Swipe Right = <span style={{color: '#00ff00'}}>PRINT 🖨️</span><br/><br/>
-                    Golden Papers = DOUBLE TAP!<br/><br/>
-                    (Read fast, they turn black...)
+                <h2 className="meme-text" style={{color: 'yellow', marginBottom: '30px', fontSize: '1.5rem', textAlign: 'center'}}>
+                    $NEWS CHECK FRENZY
+                </h2>
+                
+                <div style={{
+                    color: '#fff', fontSize: '0.9rem', lineHeight: '2.5', textAlign: 'center', 
+                    fontFamily: '"Press Start 2P"', marginBottom: '40px'
+                }}>
+                    <div style={{color: '#ff4444'}}>SWIPE LEFT (OR ⬅️) = FUD 🗑️</div>
+                    <div style={{color: '#00ff00'}}>SWIPE RIGHT (OR ➡️) = PRINT 🖨️</div>
+                    <div style={{color: '#ffd700', marginTop: '15px'}}>GOLDEN PAPER = DOUBLE TAP! (OR ⬆️)</div>
+                    
+                    <div style={{color: '#aaa', fontSize: '0.7rem', marginTop: '30px', lineHeight: '1.8'}}>
+                        * Speed increases over time.<br/>
+                        * Text turns black after 10 points. Read fast!
+                    </div>
                 </div>
-                <button className="btn-meme" style={{pointerEvents: 'auto', marginTop: 20}} onClick={startGame}>
+
+                <button className="btn-meme" onClick={startGame}>
                     START SHIFT
                 </button>
             </div>
