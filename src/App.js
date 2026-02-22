@@ -14,6 +14,7 @@ import PepeRunner from './games/PepeRunner';
 import CoinSlicer from './games/CoinSlicer'; 
 import BagsGrowth from './games/BagsGrowth';
 import NewsCheck from './games/NewsCheck';
+import WhackAPerv from './games/WhackAPerv';
 
 function App() {
   const [activeGame, setActiveGame] = useState(null);
@@ -33,6 +34,7 @@ function App() {
       case 'coinslicer': return <CoinSlicer onExit={() => setActiveGame(null)} />;
       case 'bagsgrowth': return <BagsGrowth onExit={() => setActiveGame(null)} />;
       case 'newscheck': return <NewsCheck onExit={() => setActiveGame(null)} />; 
+      case 'whackaperv': return <WhackAPerv onExit={() => setActiveGame(null)} />;
       default: return <ArcadeShell onSelectGame={setActiveGame} />;
     }
   };
