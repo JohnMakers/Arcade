@@ -113,6 +113,15 @@ export const ASSETS = {
   NC_TRASH: "assets/nc_trash.png",       // FUD bin icon (Left)
   NC_PRINT: "assets/nc_printer.png",       // Bullish printer icon (Right)
   NC_PEPE_BOSS: "assets/nc_pepe.png",    // Editor Pepe watching
+
+  // --- WHACK-A-PERV ---
+  WAP_BG: "assets/wap_bg.png", // Background
+  WAP_HOLE: "assets/wap_hole.png", // Optional: Texture for the hole
+  WAP_DIDDY: "assets/frogger_obstacle2.png", // Perv 1 Placeholder
+  WAP_EPSTEIN: "assets/frogger_obstacle.png", // Perv 2 Placeholder
+  WAP_PEPE: "assets/wap_pepe.png", // Friendly Pepe Placeholder
+  WAP_MALLET: "assets/wap_mallet.png", // Optional: custom cursor/hammer
+
 };
 
 

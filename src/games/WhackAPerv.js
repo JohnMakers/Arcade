@@ -76,7 +76,7 @@ const WhackAPerv = ({ onExit }) => {
     gameState.current.holes = holes;
   }, []);
 
-  // --- FIX 1: Auto-start game after the GameUI 3-second countdown ---
+  // Auto-start game after the GameUI 3-second countdown
   useEffect(() => {
     if (!isPlaying && !gameOver) {
       const timer = setTimeout(() => {
@@ -145,8 +145,10 @@ const WhackAPerv = ({ onExit }) => {
         mole.state = 'hit';
         
         if (mole.type === 'pepe') {
-          triggerGameOver("YOU HIT A FREN!");
-          spawnParticles(x, y, '#ff0000', 20);
+          // Visual feedback before dying instead of an alert
+          spawnParticles(x, y, '#ff0000', 30);
+          spawnText(hole.x, hole.y - 50, "😡 HIT A FREN!", '#ff0000');
+          triggerGameOver(); 
         } else {
           state.score += 1;
           setScore(state.score);
@@ -208,8 +210,6 @@ const WhackAPerv = ({ onExit }) => {
       const dt = Math.min((time - state.lastTime) / 1000, 0.1); 
       state.lastTime = time;
 
-      // --- FIX 2: Draw Background & Holes regardless of playing state ---
-      
       // 1. Draw Background
       ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -334,10 +334,9 @@ const WhackAPerv = ({ onExit }) => {
 
             if (p.life <= 0) state.particles.splice(i, 1);
           }
-      } // End of isPlaying logic
+      } 
 
       // 4. Draw Holes (Front lip for depth)
-      // Drawn outside the playing check so the empty board looks 3D during countdown
       state.holes.forEach(hole => {
         ctx.beginPath();
         ctx.ellipse(hole.x, hole.y, HOLE_WIDTH / 2, HOLE_HEIGHT / 2, 0, 0, Math.PI);
@@ -353,24 +352,17 @@ const WhackAPerv = ({ onExit }) => {
          ctx.fillText('❤', 30 + i * 35, 40);
       }
 
-      // Always request next frame unless the component unmounts
       animationId = requestAnimationFrame(loop);
     };
 
-    // Kick off the loop immediately to render the starting background
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying, gameOver, resetKey]);
 
-  const triggerGameOver = async (reason = null) => {
+  // Removed the alert() pop up completely 
+  const triggerGameOver = async () => {
     setGameOver(true);
     setIsPlaying(false);
-    
-    if (reason) {
-      setTimeout(() => {
-        alert(reason); 
-      }, 100);
-    }
 
     if (username) {
       await supabase.from('leaderboards').insert([{
@@ -403,7 +395,6 @@ const WhackAPerv = ({ onExit }) => {
             style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'url(assets/wap_mallet.png), crosshair' }} 
         />
         
-        {/* FIX 3: Instructions appear only when playing and disappear after first point */}
         {isPlaying && score === 0 && !gameOver && (
             <div className="pulse" style={{
                 position: 'absolute', top: '75%', width: '100%', textAlign: 'center', 
