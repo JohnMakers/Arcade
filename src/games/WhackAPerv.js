@@ -17,7 +17,6 @@ const WhackAPerv = ({ onExit }) => {
   // --- CONFIGURATION ---
   const CANVAS_WIDTH = 500;
   const CANVAS_HEIGHT = 800;
-  // Upgraded to 4 rows to better utilize the portrait canvas
   const HOLE_ROWS = 4; 
   const HOLE_COLS = 3;
   const HOLE_WIDTH = 100;
@@ -33,11 +32,12 @@ const WhackAPerv = ({ onExit }) => {
     sprites: {},
     lastTime: 0,
     lastSpawnTime: 0,
-    // Difficulty scaling variables
     spawnInterval: 1200, 
     maxStayTime: 1000,
     riseSpeed: 150, 
-    holes: []
+    holes: [],
+    // NEW: Track pointer for the custom canvas mallet
+    pointer: { x: -100, y: -100, hitTimer: 0 } 
   });
 
   // Load Assets
@@ -61,9 +61,9 @@ const WhackAPerv = ({ onExit }) => {
   useEffect(() => {
     const holes = [];
     const startX = 100;
-    const startY = 220; // Moved up to fill the top space
+    const startY = 220; 
     const xGap = 150;
-    const yGap = 140; // Tightened vertical gap to fit 4 rows perfectly
+    const yGap = 140; 
 
     for (let row = 0; row < HOLE_ROWS; row++) {
       for (let col = 0; col < HOLE_COLS; col++) {
@@ -87,20 +87,18 @@ const WhackAPerv = ({ onExit }) => {
     }
   }, [isPlaying, gameOver, resetKey]);
 
-  // Input Handling
+  // Input Handling & Pointer Tracking
   useEffect(() => {
-    const handleInput = (e) => {
-      if (!isPlaying || gameOver || e.target.closest('button') || e.target.closest('.interactive')) return;
-      if (e.cancelable && e.type === 'touchstart') e.preventDefault();
-
+    const getCanvasPos = (e) => {
       const canvas = canvasRef.current;
-      const rect = canvas.getBoundingClientRect();
+      if (!canvas) return { x: -100, y: -100 };
       
+      const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
 
       let clientX, clientY;
-      if (e.type === 'touchstart') {
+      if (e.touches && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
         clientY = e.touches[0].clientY;
       } else {
@@ -108,9 +106,29 @@ const WhackAPerv = ({ onExit }) => {
         clientY = e.clientY;
       }
 
-      const x = (clientX - rect.left) * scaleX;
-      const y = (clientY - rect.top) * scaleY;
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    };
 
+    const handlePointerMove = (e) => {
+       if (gameOver) return;
+       const { x, y } = getCanvasPos(e);
+       gameState.current.pointer.x = x;
+       gameState.current.pointer.y = y;
+    };
+
+    const handleInput = (e) => {
+      if (!isPlaying || gameOver || e.target.closest('button') || e.target.closest('.interactive')) return;
+      if (e.cancelable && e.type === 'touchstart') e.preventDefault();
+
+      const { x, y } = getCanvasPos(e);
+      
+      // Update pointer pos (crucial for mobile taps)
+      gameState.current.pointer.x = x;
+      gameState.current.pointer.y = y;
+      
       handleWhack(x, y);
     };
 
@@ -118,18 +136,24 @@ const WhackAPerv = ({ onExit }) => {
     if (wrapper) {
       wrapper.addEventListener('mousedown', handleInput);
       wrapper.addEventListener('touchstart', handleInput, { passive: false });
+      // NEW: Track mouse movement for desktop hover
+      wrapper.addEventListener('mousemove', handlePointerMove);
     }
 
     return () => {
       if (wrapper) {
         wrapper.removeEventListener('mousedown', handleInput);
         wrapper.removeEventListener('touchstart', handleInput);
+        wrapper.removeEventListener('mousemove', handlePointerMove);
       }
     };
   }, [isPlaying, gameOver]);
 
   const handleWhack = (x, y) => {
     const state = gameState.current;
+    
+    // Trigger the mallet swing animation
+    state.pointer.hitTimer = 0.15; 
     
     spawnParticles(x, y, '#ffffff', 5);
 
@@ -200,6 +224,10 @@ const WhackAPerv = ({ onExit }) => {
       riseSpeed: 150,
       lastSpawnTime: performance.now()
     };
+    // Keep pointer coordinates alive across resets so desktop mouse doesn't disappear
+    const currentPointer = gameState.current.pointer;
+    gameState.current.pointer = currentPointer;
+    
     gameState.current.holes.forEach(h => h.active = false);
 
     let animationId;
@@ -209,6 +237,11 @@ const WhackAPerv = ({ onExit }) => {
       const state = gameState.current;
       const dt = Math.min((time - state.lastTime) / 1000, 0.1); 
       state.lastTime = time;
+
+      // Update Mallet Hit Timer
+      if (state.pointer.hitTimer > 0) {
+        state.pointer.hitTimer -= dt;
+      }
 
       // 1. Draw Background
       ctx.fillStyle = '#111';
@@ -305,7 +338,6 @@ const WhackAPerv = ({ onExit }) => {
                ctx.fillStyle = mole.type === 'pepe' ? '#00ff00' : (mole.type === 'diddy' ? '#ff00ff' : '#aa00ff');
                ctx.fillRect(hole.x - MOLE_WIDTH / 2, hole.y - mole.yOffset, MOLE_WIDTH, MOLE_HEIGHT);
             }
-            // Removed the white flash rect block completely
             ctx.restore();
           }
 
@@ -348,6 +380,23 @@ const WhackAPerv = ({ onExit }) => {
          ctx.fillText('❤', 30 + i * 35, 40);
       }
 
+      // 6. DRAW THE MALLET OVER EVERYTHING (NEW)
+      if (state.pointer.x > -50 && state.sprites['mallet']) {
+        ctx.save();
+        // Move canvas origin to the mouse/finger coordinate
+        ctx.translate(state.pointer.x, state.pointer.y);
+        
+        // If animating a hit, rotate the canvas
+        if (state.pointer.hitTimer > 0) {
+            ctx.rotate(-Math.PI / 4); // Swing left 45 degrees
+        }
+        
+        // Draw the mallet offset so the "head" of the hammer strikes the cursor point
+        // You may need to tweak these offsets (-20, -50) based on how the designer crops the image
+        ctx.drawImage(state.sprites['mallet'], -20, -50, 80, 80); 
+        ctx.restore();
+      }
+
       animationId = requestAnimationFrame(loop);
     };
 
@@ -387,7 +436,8 @@ const WhackAPerv = ({ onExit }) => {
             ref={canvasRef} 
             width={CANVAS_WIDTH} 
             height={CANVAS_HEIGHT} 
-            style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'url(assets/wap_mallet.png), crosshair' }} 
+            {/* NEW: Hide the default cursor so only our canvas mallet shows */}
+            style={{ width: '100%', maxWidth: '500px', height: 'auto', display: 'block', cursor: 'none' }} 
         />
         
         {isPlaying && score === 0 && !gameOver && (
