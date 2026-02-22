@@ -105,6 +105,14 @@ export const ASSETS = {
   BG_ALPHA: "assets/bg_gold.png", 
   BG_HEAVY: "assets/bg_slow.png",  
   BG_FUD: "assets/bg_rug.png", 
+
+  // --- $NEWS CHECK FRENZY ---
+  NC_BG: "assets/nc_bg.png",             // Newsroom background
+  NC_PAPER: "assets/nc_paper.png",       // Blank newspaper/memo texture
+  NC_PAPER_GOLD: "assets/nc_gold.png",   // Golden paper texture
+  NC_TRASH: "assets/nc_trash.png",       // FUD bin icon (Left)
+  NC_PRINT: "assets/nc_print.png",       // Bullish printer icon (Right)
+  NC_PEPE_BOSS: "assets/nc_pepe.png",    // Editor Pepe watching
 };
 
 
