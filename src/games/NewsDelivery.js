@@ -22,6 +22,9 @@ const NewsDelivery = ({ onExit }) => {
   const ROAD_LEFT = 100;
   const ROAD_RIGHT = 400;
   const INITIAL_SPEED = 6;
+  const MAX_SPEED = 20;
+
+  const keys = useRef({ left: false, right: false });
 
   const gameState = useRef({
     player: { x: CANVAS_WIDTH / 2, y: 650, w: 50, h: 50, targetX: CANVAS_WIDTH / 2 },
@@ -67,13 +70,12 @@ const NewsDelivery = ({ onExit }) => {
     return () => clearTimeout(timer);
   }, [isPlaying, gameOver]);
 
-  // Controls: Drag to steer, tap edges to throw, tap to start
+  // Controls: Keyboard/Touch for movement, Mouse/Tap for throwing
   useEffect(() => {
-    const handlePointer = (e) => {
+    const handlePointerDown = (e) => {
       if (gameOver) return;
       if (e.target.closest('button')) return;
 
-      // Wait for the tap to start the game after instructions appear
       if (!isPlaying) {
           if (showInstructions) setIsPlaying(true);
           return;
@@ -90,19 +92,39 @@ const NewsDelivery = ({ onExit }) => {
       const scaleX = CANVAS_WIDTH / rect.width;
       const canvasX = (clientX - rect.left) * scaleX;
 
-      if (e.type === 'mousedown' || e.type === 'touchstart') {
-          if (canvasX < ROAD_LEFT + 20) {
-              throwPaper(-1); // Throw Left
-          } else if (canvasX > ROAD_RIGHT - 20) {
-              throwPaper(1);  // Throw Right
-          } else {
-              gameState.current.player.targetX = canvasX;
-          }
-      } else if (e.type === 'mousemove' || e.type === 'touchmove') {
-          if (canvasX >= ROAD_LEFT && canvasX <= ROAD_RIGHT) {
-              gameState.current.player.targetX = canvasX;
-          }
+      // Tap/Click edges to throw
+      if (canvasX < ROAD_LEFT + 40) {
+          throwPaper(-1); 
+      } else if (canvasX > ROAD_RIGHT - 40) {
+          throwPaper(1);  
+      } else if (e.type.includes('touch')) {
+          // If touching the center on mobile, snap target to finger
+          gameState.current.player.targetX = canvasX;
       }
+    };
+
+    // Mobile swipe/drag movement
+    const handleTouchMove = (e) => {
+      if (!isPlaying || gameOver) return;
+      let clientX = e.touches[0].clientX;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const scaleX = CANVAS_WIDTH / rect.width;
+      const canvasX = (clientX - rect.left) * scaleX;
+      
+      if (canvasX >= ROAD_LEFT && canvasX <= ROAD_RIGHT) {
+          gameState.current.player.targetX = canvasX;
+      }
+    };
+
+    // Desktop Keyboard Movement
+    const handleKeyDown = (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.current.left = true;
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.current.right = true;
+    };
+
+    const handleKeyUp = (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.current.left = false;
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.current.right = false;
     };
 
     const throwPaper = (direction) => {
@@ -127,19 +149,21 @@ const NewsDelivery = ({ onExit }) => {
 
     const wrapper = containerRef.current;
     if (wrapper) {
-      wrapper.addEventListener('mousedown', handlePointer);
-      wrapper.addEventListener('mousemove', handlePointer);
-      wrapper.addEventListener('touchstart', handlePointer, { passive: false });
-      wrapper.addEventListener('touchmove', handlePointer, { passive: false });
+      wrapper.addEventListener('mousedown', handlePointerDown);
+      wrapper.addEventListener('touchstart', handlePointerDown, { passive: false });
+      wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
     }
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
       if (wrapper) {
-        wrapper.removeEventListener('mousedown', handlePointer);
-        wrapper.removeEventListener('mousemove', handlePointer);
-        wrapper.removeEventListener('touchstart', handlePointer);
-        wrapper.removeEventListener('touchmove', handlePointer);
+        wrapper.removeEventListener('mousedown', handlePointerDown);
+        wrapper.removeEventListener('touchstart', handlePointerDown);
+        wrapper.removeEventListener('touchmove', handleTouchMove);
       }
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [isPlaying, gameOver, showInstructions]);
 
@@ -157,6 +181,7 @@ const NewsDelivery = ({ onExit }) => {
       speed: INITIAL_SPEED, score: 0, ammo: 10, distance: 0,
       lastTime: performance.now()
     };
+    keys.current = { left: false, right: false };
 
     let animationId;
 
@@ -169,10 +194,19 @@ const NewsDelivery = ({ onExit }) => {
       if (isPlaying && !gameOver) {
           state.distance += state.speed * dt;
           
-          state.speed = INITIAL_SPEED + Math.floor(state.distance / 1000);
+          // Difficulty scaling based on SCORE, scaling slower, with a cap
+          state.speed = INITIAL_SPEED + (state.score * 0.05);
+          state.speed = Math.min(state.speed, MAX_SPEED);
 
+          // Keyboard steering logic
+          if (keys.current.left) state.player.targetX -= 12 * dt;
+          if (keys.current.right) state.player.targetX += 12 * dt;
+
+          // Clamp target to road boundaries
+          state.player.targetX = Math.max(ROAD_LEFT + state.player.w/2, Math.min(ROAD_RIGHT - state.player.w/2, state.player.targetX));
+
+          // Smoothly move player towards targetX
           state.player.x += (state.player.targetX - state.player.x) * 0.2 * dt;
-          state.player.x = Math.max(ROAD_LEFT + state.player.w/2, Math.min(ROAD_RIGHT - state.player.w/2, state.player.x));
 
           if (Math.random() < 0.03 * dt) { 
               spawnEntity(state);
@@ -210,11 +244,12 @@ const NewsDelivery = ({ onExit }) => {
                           if (house.type === 'HOUSE_GREEN') {
                               state.score += 10;
                               spawnText(house.x, house.y, "+10 HODL", "lime");
+                              setScore(state.score);
                           } else {
-                              state.score += 20;
-                              spawnText(house.x, house.y, "FUD REKT!", "red");
+                              // FUD House penalty - immediate game over
+                              spawnText(house.x, house.y, "RUG PULLED!", "red");
+                              triggerGameOver();
                           }
-                          setScore(state.score);
                       }
                   });
               }
@@ -283,7 +318,6 @@ const NewsDelivery = ({ onExit }) => {
       let x, type, texture, color, w, h;
 
       if (rand < 0.4) {
-          // Spawn House
           const isLeft = Math.random() < 0.5;
           x = isLeft ? ROAD_LEFT / 2 : CANVAS_WIDTH - (ROAD_LEFT / 2);
           const isGreen = Math.random() < 0.7;
@@ -292,7 +326,6 @@ const NewsDelivery = ({ onExit }) => {
           color = isGreen ? 'lime' : 'red';
           w = 60; h = 60;
       } else if (rand < 0.8) {
-          // Spawn Obstacle
           x = ROAD_LEFT + 20 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 40);
           const isVan = Math.random() < 0.5;
           type = isVan ? 'VAN' : 'POTHOLE';
@@ -301,7 +334,6 @@ const NewsDelivery = ({ onExit }) => {
           w = isVan ? 50 : 30;
           h = isVan ? 80 : 30;
       } else {
-          // Spawn Ammo
           x = ROAD_LEFT + 20 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 40);
           type = 'AMMO';
           texture = 'ammo';
@@ -317,6 +349,9 @@ const NewsDelivery = ({ onExit }) => {
   };
 
   const triggerGameOver = async () => {
+      // Set these simultaneously so GameUI immediately renders the "Wasted" screen 
+      // instead of re-triggering the 3-second starting countdown
+      setGameOver(true); 
       setIsPlaying(false);
       
       if (username) {
@@ -327,8 +362,6 @@ const NewsDelivery = ({ onExit }) => {
             address: address
         }]);
       }
-
-      setTimeout(() => { setGameOver(true); }, 500);
   };
 
   return (
@@ -349,7 +382,6 @@ const NewsDelivery = ({ onExit }) => {
             gameId="newsdelivery" 
         />
         
-        {/* HUD for Ammo */}
         {isPlaying && !gameOver && (
             <div style={{ position: 'absolute', top: 20, right: 20, color: 'cyan', textShadow: '2px 2px #000', fontSize: '1.2rem', zIndex: 10 }}>
                 AMMO: {ammo}
@@ -369,8 +401,8 @@ const NewsDelivery = ({ onExit }) => {
                 pointerEvents: 'none', color: 'lime', textShadow: '2px 2px #000',
                 fontFamily: '"Press Start 2P"', lineHeight: '1.5', zIndex: 30
             }}>
-                DRAG TO STEER<br/>
-                TAP EDGES TO THROW<br/><br/>
+                USE ARROWS / DRAG TO STEER<br/><br/>
+                CLICK / TAP EDGES TO THROW<br/><br/>
                 TAP TO START!
             </div>
         )}
