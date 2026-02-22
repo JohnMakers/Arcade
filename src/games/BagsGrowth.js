@@ -30,7 +30,7 @@ const BagsGrowth = ({ onExit }) => {
     windTime: 0,
     difficultyMultiplier: 1,
     spawnTimer: 0,
-    health: 3, // <--- NEW: Start with 3 lives
+    health: 3, 
     keys: {},
     sprites: {},
     lastTime: 0
@@ -39,12 +39,15 @@ const BagsGrowth = ({ onExit }) => {
   // Load Assets
   useEffect(() => {
     const loadSprite = (key, src) => {
+      if (!src) return; // Safety check
       const img = new Image();
       img.src = src;
       img.crossOrigin = "Anonymous";
       img.onload = () => { gameState.current.sprites[key] = img; };
     };
 
+    // <--- FIX: Loading the background asset --->
+    loadSprite('bg', ASSETS.BG_BG); 
     loadSprite('hero', ASSETS.BG_HERO);
     loadSprite('chad', ASSETS.BG_CHAD);
     loadSprite('gem', ASSETS.BG_GEM);
@@ -127,7 +130,7 @@ const BagsGrowth = ({ onExit }) => {
     gameState.current.difficultyMultiplier = 1;
     gameState.current.wind = 0;
     gameState.current.windTime = 0;
-    gameState.current.health = 3; // <--- NEW: Reset health on restart
+    gameState.current.health = 3; 
 
     gameState.current.lastTime = performance.now();
     let animationId;
@@ -150,7 +153,7 @@ const BagsGrowth = ({ onExit }) => {
       // --- LOGIC ---
       
       // 1. Difficulty & Wind Math
-      state.difficultyMultiplier = 1 + (state.score / 50); // Scales up as score increases
+      state.difficultyMultiplier = 1 + (state.score / 50); 
       state.windTime += 0.01 * dt;
       // Sine wave wind, peaks at +/- 3 * difficulty
       state.wind = Math.sin(state.windTime) * (2 + state.difficultyMultiplier * 0.5);
@@ -181,7 +184,6 @@ const BagsGrowth = ({ onExit }) => {
       state.spawnTimer -= dt;
       if (state.spawnTimer <= 0) {
           spawnItem(state);
-          // Spawn rate increases with difficulty
           state.spawnTimer = Math.max(30, 100 - (state.difficultyMultiplier * 5)); 
       }
 
@@ -189,14 +191,11 @@ const BagsGrowth = ({ onExit }) => {
       for (let i = state.items.length - 1; i >= 0; i--) {
           const item = state.items[i];
           
-          // Terminal Velocity + Wind
           item.y += item.vy * dt;
           item.x += state.wind * dt;
 
-          // Always Possible Rule: Clamp items to screen X
           item.x = Math.max(0, Math.min(item.x, CANVAS_WIDTH - item.w));
 
-          // AABB Collision Detection
           const hit = (
               item.x < state.player.x + state.player.w &&
               item.x + item.w > state.player.x &&
@@ -210,12 +209,10 @@ const BagsGrowth = ({ onExit }) => {
               continue;
           }
 
-          // Missed Item Logic
           if (item.y > CANVAS_HEIGHT) {
               if (item.type === 'GEM' || item.type === 'ALPHA') {
-                  spawnEmojis(state, item.x, CANVAS_HEIGHT - 50, '😢'); // Sad Pepe substitute
+                  spawnEmojis(state, item.x, CANVAS_HEIGHT - 50, '😢'); 
                   
-                  // <--- NEW: Health deduction logic --->
                   state.health -= 1;
                   if (state.health <= 0) {
                       triggerGameOver(state);
@@ -256,7 +253,7 @@ const BagsGrowth = ({ onExit }) => {
           y: -50,
           w, h,
           type,
-          vy: BASE_FALL_SPEED * state.difficultyMultiplier * (Math.random() * 0.5 + 0.8) // Slight speed variance
+          vy: BASE_FALL_SPEED * state.difficultyMultiplier * (Math.random() * 0.5 + 0.8) 
       });
   };
 
@@ -267,18 +264,17 @@ const BagsGrowth = ({ onExit }) => {
           spawnEmojis(state, item.x, item.y, '💎');
       } 
       else if (item.type === 'ALPHA') {
-          state.player.chadTimer = 300; // ~5 seconds at 60fps
+          state.player.chadTimer = 300; 
           state.score += 5;
           setScore(state.score);
           spawnEmojis(state, state.player.x + state.player.w/2, state.player.y, '🔥');
       }
       else if (item.type === 'HEAVY') {
-          state.player.heavyTimer = 180; // ~3 seconds
+          state.player.heavyTimer = 180; 
           spawnEmojis(state, item.x, item.y, '🗿');
       }
       else if (item.type === 'FUD') {
           if (isChad) {
-              // GigaChad ignores FUD and destroys it
               spawnEmojis(state, item.x, item.y, '💥');
               state.score += 1;
               setScore(state.score);
@@ -305,6 +301,12 @@ const BagsGrowth = ({ onExit }) => {
   };
 
   const drawScene = (ctx, state) => {
+      // <--- FIX: Draw Background Layer First --->
+      const bgSprite = state.sprites['bg'];
+      if (bgSprite) {
+          ctx.drawImage(bgSprite, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      }
+
       // Draw Wind Indicator (Background effect)
       if (state.wind !== 0) {
           ctx.fillStyle = `rgba(255, 255, 255, 0.05)`;
@@ -320,7 +322,6 @@ const BagsGrowth = ({ onExit }) => {
           if (sprite) {
               ctx.drawImage(sprite, item.x, item.y, item.w, item.h);
           } else {
-              // Fallbacks if images don't load
               ctx.fillStyle = item.type === 'FUD' ? 'red' : item.type === 'HEAVY' ? 'gray' : item.type === 'ALPHA' ? 'orange' : 'cyan';
               ctx.fillRect(item.x, item.y, item.w, item.h);
           }
@@ -332,7 +333,7 @@ const BagsGrowth = ({ onExit }) => {
       const heroSprite = state.sprites[isChad ? 'chad' : 'hero'];
       
       if (heroSprite) {
-          ctx.globalAlpha = isHeavy ? 0.5 : 1.0; // Visual indicator for heavy penalty
+          ctx.globalAlpha = isHeavy ? 0.5 : 1.0; 
           ctx.drawImage(heroSprite, state.player.x, state.player.y, state.player.w, state.player.h);
           ctx.globalAlpha = 1.0;
       } else {
@@ -349,13 +350,12 @@ const BagsGrowth = ({ onExit }) => {
           ctx.globalAlpha = 1.0;
       });
 
-      // <--- NEW: Draw Health Bar (Top Right) --->
+      // Draw Health Bar (Top Right)
       if (isPlaying && !gameOver) {
           ctx.globalAlpha = 1.0;
           ctx.font = '24px serif';
           ctx.textAlign = 'right';
           ctx.textBaseline = 'top';
-          // Draw a literal heart for every life remaining
           ctx.fillText('❤️'.repeat(Math.max(0, state.health)), CANVAS_WIDTH - 20, 20);
       }
   };
