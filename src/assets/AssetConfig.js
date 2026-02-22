@@ -120,7 +120,7 @@ export const ASSETS = {
   WAP_DIDDY: "assets/frogger_obstacle2.png", // Perv 1 Placeholder
   WAP_EPSTEIN: "assets/frogger_obstacle.png", // Perv 2 Placeholder
   WAP_PEPE: "assets/wap_pepe.png", // Friendly Pepe Placeholder
-  WAP_MALLET: "assets/wap_mallet.png", // Optional: custom cursor/hammer
+  WAP_MALLET: "assets/wap_hammer.png", // Optional: custom cursor/hammer
 
 };
 
