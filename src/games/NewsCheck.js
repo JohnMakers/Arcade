@@ -55,7 +55,7 @@ const NewsCheck = ({ onExit }) => {
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false); // Controls the Intro UI isolation
+  const [hasStarted, setHasStarted] = useState(false);
   const [resetKey, setResetKey] = useState(0);
 
   // Constants
@@ -66,7 +66,9 @@ const NewsCheck = ({ onExit }) => {
   const PAPER_WIDTH = 300;
   const PAPER_HEIGHT = 350;
 
+  // We use this ref to keep track of real-time status without closure issues in the loop
   const gameState = useRef({
+    status: 'IDLE', // IDLE, PLAYING, GAMEOVER
     score: 0,
     sprites: {},
     currentPaper: null,
@@ -118,6 +120,8 @@ const NewsCheck = ({ onExit }) => {
         isVerified: false,
         x: CANVAS_WIDTH / 2,
         y: CANVAS_HEIGHT / 2,
+        vx: 0, // Used for game over physics
+        vy: 0, // Used for game over physics
         rotation: (Math.random() - 0.5) * 0.2
     };
 
@@ -129,6 +133,8 @@ const NewsCheck = ({ onExit }) => {
 
   const processSwipe = (offsetX) => {
     const state = gameState.current;
+    if (state.status !== 'PLAYING') return;
+
     const p = state.currentPaper;
     if (!p) return;
 
@@ -181,11 +187,12 @@ const NewsCheck = ({ onExit }) => {
     });
   };
 
-  // Input Handling (Touch & Mouse)
+  // Input Handling
   useEffect(() => {
     const handlePointerDown = (e) => {
-      if (!isPlaying || gameOver) return;
       const state = gameState.current;
+      if (state.status !== 'PLAYING') return;
+
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
@@ -207,7 +214,8 @@ const NewsCheck = ({ onExit }) => {
     };
 
     const handlePointerMove = (e) => {
-      if (!isPlaying || gameOver || !gameState.current.isDragging) return;
+      const state = gameState.current;
+      if (state.status !== 'PLAYING' || !state.isDragging) return;
       if (e.cancelable) e.preventDefault();
       
       const canvas = canvasRef.current;
@@ -246,13 +254,14 @@ const NewsCheck = ({ onExit }) => {
       window.removeEventListener('mouseup', handlePointerUp);
       window.removeEventListener('touchend', handlePointerUp);
     };
-  }, [isPlaying, gameOver]);
+  }, []); // Empty dependency array, state reads via refs
 
   // Keyboard Handling
   useEffect(() => {
     const handleKeyDown = (e) => {
-        if (!isPlaying || gameOver) return;
         const state = gameState.current;
+        if (state.status !== 'PLAYING') return;
+        
         const p = state.currentPaper;
         if (!p) return;
 
@@ -273,7 +282,7 @@ const NewsCheck = ({ onExit }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, gameOver]);
+  }, []);
 
 
   // Core Game Loop
@@ -296,6 +305,7 @@ const NewsCheck = ({ onExit }) => {
 
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
+      // 1. Draw Background
       if (state.sprites['bg']) {
           ctx.drawImage(state.sprites['bg'], 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       } else {
@@ -305,26 +315,37 @@ const NewsCheck = ({ onExit }) => {
           ctx.fillRect(CANVAS_WIDTH/2 - 160, 0, 320, CANVAS_HEIGHT);
       }
 
+      // 2. Draw Pepe Boss (with slight hover animation)
+      if (state.sprites['pepe']) {
+          const hoverY = Math.sin(time / 300) * 5; // Creates a breathing effect
+          ctx.drawImage(state.sprites['pepe'], CANVAS_WIDTH/2 - 75, 40 + hoverY, 150, 150);
+      }
+
+      // 3. Draw Indicators (Now significantly larger: 140x140)
       ctx.globalAlpha = 0.5;
-      if (state.sprites['trash']) ctx.drawImage(state.sprites['trash'], 20, CANVAS_HEIGHT/2 - 40, 80, 80);
+      if (state.sprites['trash']) ctx.drawImage(state.sprites['trash'], 10, CANVAS_HEIGHT/2 - 70, 140, 140);
       else { ctx.fillStyle = 'red'; ctx.fillText("🗑️", 60, CANVAS_HEIGHT/2); }
       
-      if (state.sprites['print']) ctx.drawImage(state.sprites['print'], CANVAS_WIDTH - 100, CANVAS_HEIGHT/2 - 40, 80, 80);
+      if (state.sprites['print']) ctx.drawImage(state.sprites['print'], CANVAS_WIDTH - 150, CANVAS_HEIGHT/2 - 70, 140, 140);
       else { ctx.fillStyle = 'green'; ctx.fillText("🖨️", CANVAS_WIDTH - 60, CANVAS_HEIGHT/2); }
       ctx.globalAlpha = 1.0;
 
       const p = state.currentPaper;
       
-      // Paper rendering is active even during the countdown to allow reading
-      if (p && !gameOver) {
-          
-          if (isPlaying) {
+      if (p) {
+          // Timer logic
+          if (state.status === 'PLAYING') {
               if (!state.isDragging) {
                  state.timer -= state.timerDrainRate * dt;
-                 if (state.timer <= 0) {
-                     triggerGameOver();
-                 }
+                 if (state.timer <= 0) triggerGameOver();
               }
+          } 
+          // Game Over Physics Logic
+          else if (state.status === 'GAMEOVER') {
+              p.vy += 0.8 * dt; // Gravity
+              p.y += p.vy * dt;
+              p.x += p.vx * dt;
+              p.rotation += (p.vx > 0 ? 0.05 : -0.05) * dt;
           }
 
           ctx.save();
@@ -401,7 +422,7 @@ const NewsCheck = ({ onExit }) => {
 
     animationId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationId);
-  }, [resetKey]); // Removed isPlaying dependency so the loop persists during countdown
+  }, [resetKey]);
 
   const createParticles = (x, y, color) => {
       for(let i=0; i<15; i++) {
@@ -417,12 +438,15 @@ const NewsCheck = ({ onExit }) => {
   };
 
   const triggerGameOver = async () => {
-      if (gameOver) return;
       const state = gameState.current;
+      if (state.status === 'GAMEOVER') return;
       
+      state.status = 'GAMEOVER';
+      
+      // Dynamic fall animation setup
       if (state.currentPaper) {
-         state.currentPaper.y += 200;
-         state.currentPaper.rotation += 1;
+         state.currentPaper.vy = -12; // Initial pop upwards
+         state.currentPaper.vx = (Math.random() - 0.5) * 15; // Random sideways spin
       }
 
       if (username) {
@@ -435,12 +459,14 @@ const NewsCheck = ({ onExit }) => {
       }
 
       setGameOver(true);
+      setIsPlaying(false);
   };
 
   const startGame = () => {
-      setHasStarted(true); // Mounts GameUI to trigger the countdown
-      // Wait exactly 3 seconds for GameUI to finish counting down, then enable play
+      setHasStarted(true); 
+      gameState.current.status = 'IDLE'; // Paused for countdown
       playTimeoutRef.current = setTimeout(() => {
+          gameState.current.status = 'PLAYING';
           setIsPlaying(true);
       }, 3000); 
   };
@@ -448,7 +474,6 @@ const NewsCheck = ({ onExit }) => {
   return (
     <div ref={containerRef} className="game-wrapper" style={{ touchAction: 'none' }}>
         
-        {/* Game UI is heavily isolated behind hasStarted to prevent countdown overlaps */}
         {hasStarted && (
             <GameUI 
                 score={score} 
@@ -456,12 +481,15 @@ const NewsCheck = ({ onExit }) => {
                 isPlaying={isPlaying} 
                 onRestart={() => { 
                     setGameOver(false); 
-                    setIsPlaying(false); // Make sure we hit the countdown again
+                    setIsPlaying(false); 
                     setScore(0); 
                     setResetKey(prev => prev + 1); 
                     
+                    gameState.current.status = 'IDLE';
                     if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
+                    
                     playTimeoutRef.current = setTimeout(() => {
+                        gameState.current.status = 'PLAYING';
                         setIsPlaying(true);
                     }, 3000);
                 }} 
