@@ -10,7 +10,6 @@ const NewsDelivery = ({ onExit }) => {
   const { username, address } = useContext(UserContext);
 
   const [score, setScore] = useState(0);
-  const [ammo, setAmmo] = useState(10); 
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -77,11 +76,13 @@ const NewsDelivery = ({ onExit }) => {
   // Controls: Keyboard/Touch for movement, Mouse/Tap for throwing
   useEffect(() => {
     const handlePointerDown = (e) => {
+      // FIX 1: Allow UI buttons to process clicks before preventing default touch behavior
+      if (e.target.closest('button') || e.target.closest('.interactive')) return;
+      
       // Prevent double-firing on mobile by stopping the synthetic mousedown event
       if (e.cancelable && e.type === 'touchstart') e.preventDefault();
 
       if (gameOver) return;
-      if (e.target.closest('button')) return;
 
       if (!isPlaying) {
           if (showInstructions) setIsPlaying(true);
@@ -158,8 +159,8 @@ const NewsDelivery = ({ onExit }) => {
             return;
         }
         
+        // FIX 2: Only update canvas state, removed React setAmmo to stop frame freezes
         state.ammo -= 1;
-        setAmmo(state.ammo);
         
         state.papers.push({
             x: state.player.x,
@@ -245,7 +246,6 @@ const NewsDelivery = ({ onExit }) => {
                       } else if (ent.type === 'AMMO' && ent.active) {
                           ent.active = false;
                           state.ammo += 5;
-                          setAmmo(state.ammo);
                           spawnText(ent.x, ent.y, "+5 $NEWS", "cyan");
                       }
                   }
@@ -261,10 +261,8 @@ const NewsDelivery = ({ onExit }) => {
                       if (p.x > house.x - house.w/2 && p.x < house.x + house.w/2 &&
                           p.y > house.y - house.h/2 && p.y < house.y + house.h/2) {
                           
-                          // Paper is always destroyed on impact (no shooting through houses)
                           p.active = false;
 
-                          // Only register score/penalty if the house hasn't been hit yet
                           if (!house.hit) {
                               house.hit = true;
 
@@ -338,6 +336,18 @@ const NewsDelivery = ({ onExit }) => {
       });
       state.particles = state.particles.filter(p => p.life > 0);
 
+      // Draw Ammo Counter directly on Canvas (prevents React DOM re-renders)
+      if (isPlaying && !gameOver) {
+          ctx.fillStyle = 'cyan';
+          ctx.font = '16px "Press Start 2P"';
+          ctx.textAlign = 'right';
+          // Adding a nice black outline for visibility
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'black';
+          ctx.strokeText(`AMMO: ${state.ammo}`, CANVAS_WIDTH - 20, 40);
+          ctx.fillText(`AMMO: ${state.ammo}`, CANVAS_WIDTH - 20, 40);
+      }
+
       animationId = requestAnimationFrame(loop);
     };
 
@@ -401,7 +411,7 @@ const NewsDelivery = ({ onExit }) => {
       }
 
       const proposedY = -100;
-      const buffer = 30; // 30px mandatory safety gap
+      const buffer = 30; 
 
       // Overlap Prevention Logic
       const hasOverlap = state.entities.some(e => {
@@ -410,7 +420,6 @@ const NewsDelivery = ({ onExit }) => {
           return verticalOverlap && horizontalOverlap;
       });
 
-      // If this random spawn overlaps with anything already calculated, skip spawning it this frame
       if (hasOverlap) return; 
 
       state.entities.push({ x, y: proposedY, w, h, hitW, hitH, type, texture, color, hit: false, active: true, flip });
@@ -445,19 +454,12 @@ const NewsDelivery = ({ onExit }) => {
                 setIsPlaying(false); 
                 setShowInstructions(false);
                 setScore(0); 
-                setAmmo(10);
                 setResetKey(prev => prev + 1); 
             }} 
             onExit={onExit} 
             gameId="newsdelivery" 
         />
         
-        {isPlaying && !gameOver && (
-            <div style={{ position: 'absolute', top: 20, right: 20, color: 'cyan', textShadow: '2px 2px #000', fontSize: '1.2rem', zIndex: 10 }}>
-                AMMO: {ammo}
-            </div>
-        )}
-
         <canvas 
             ref={canvasRef} 
             width={CANVAS_WIDTH} 
