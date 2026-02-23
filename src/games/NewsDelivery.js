@@ -77,7 +77,7 @@ const NewsDelivery = ({ onExit }) => {
   // Controls: Keyboard/Touch for movement, Mouse/Tap for throwing
   useEffect(() => {
     const handlePointerDown = (e) => {
-      // FIX: Prevent double-firing on mobile by stopping the synthetic mousedown event
+      // Prevent double-firing on mobile by stopping the synthetic mousedown event
       if (e.cancelable && e.type === 'touchstart') e.preventDefault();
 
       if (gameOver) return;
@@ -105,7 +105,6 @@ const NewsDelivery = ({ onExit }) => {
 
       if (e.type.includes('touch')) {
           // Mobile: Tap edges to throw left/right. 
-          // Widened tap zones slightly to 60px for better reliability.
           if (canvasX < ROAD_LEFT + 60) {
               throwPaper(-8, -10); 
           } else if (canvasX > ROAD_RIGHT - 60) {
@@ -262,16 +261,21 @@ const NewsDelivery = ({ onExit }) => {
                       if (p.x > house.x - house.w/2 && p.x < house.x + house.w/2 &&
                           p.y > house.y - house.h/2 && p.y < house.y + house.h/2) {
                           
+                          // Paper is always destroyed on impact (no shooting through houses)
                           p.active = false;
-                          house.hit = true;
 
-                          if (house.type === 'HOUSE_GREEN') {
-                              state.score += 10;
-                              spawnText(house.x, house.y, "+10 HODL", "lime");
-                              setScore(state.score);
-                          } else {
-                              spawnText(house.x, house.y, "RUG PULLED!", "red");
-                              triggerGameOver();
+                          // Only register score/penalty if the house hasn't been hit yet
+                          if (!house.hit) {
+                              house.hit = true;
+
+                              if (house.type === 'HOUSE_GREEN') {
+                                  state.score += 10;
+                                  spawnText(house.x, house.y, "+10 HODL", "lime");
+                                  setScore(state.score);
+                              } else {
+                                  spawnText(house.x, house.y, "RUG PULLED!", "red");
+                                  triggerGameOver();
+                              }
                           }
                       }
                   });
@@ -374,7 +378,6 @@ const NewsDelivery = ({ onExit }) => {
           type = isGreen ? 'HOUSE_GREEN' : 'HOUSE_RED';
           texture = isGreen ? 'house_green' : 'house_red';
           color = isGreen ? 'lime' : 'red';
-          // Increased House size to 80x80
           w = 80; h = 80; hitW = 70; hitH = 70;
       } else if (rand < 0.8) {
           // OBSTACLES
