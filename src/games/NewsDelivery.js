@@ -27,7 +27,6 @@ const NewsDelivery = ({ onExit }) => {
   const keys = useRef({ left: false, right: false });
 
   const gameState = useRef({
-    // Hero size increased from 40x60 to 50x75
     player: { x: CANVAS_WIDTH / 2, y: 650, w: 50, h: 75, targetX: CANVAS_WIDTH / 2 },
     entities: [], 
     papers: [],   
@@ -198,7 +197,6 @@ const NewsDelivery = ({ onExit }) => {
     // Reset Game State on mount or restart
     gameState.current = {
       ...gameState.current,
-      // Ensure the reset state matches the new 50x75 hero size
       player: { x: CANVAS_WIDTH / 2, y: 650, w: 50, h: 75, targetX: CANVAS_WIDTH / 2 },
       entities: [], papers: [], particles: [],
       speed: INITIAL_SPEED, score: 0, ammo: 10, distance: 0,
@@ -372,10 +370,12 @@ const NewsDelivery = ({ onExit }) => {
           type = isGreen ? 'HOUSE_GREEN' : 'HOUSE_RED';
           texture = isGreen ? 'house_green' : 'house_red';
           color = isGreen ? 'lime' : 'red';
-          w = 60; h = 60; hitW = 50; hitH = 50;
+          // Increased House size to 80x80
+          w = 80; h = 80; hitW = 70; hitH = 70;
       } else if (rand < 0.8) {
           // OBSTACLES
-          x = ROAD_LEFT + 20 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 40);
+          // Added a slightly tighter margin to spawn logic (25 instead of 20) to keep vans/potholes clearly on the road
+          x = ROAD_LEFT + 25 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 50);
           const isVan = Math.random() < 0.5;
           type = isVan ? 'VAN' : 'POTHOLE';
           texture = isVan ? 'van' : 'pothole';
@@ -387,14 +387,27 @@ const NewsDelivery = ({ onExit }) => {
           hitH = isVan ? 75 : 30;
       } else {
           // AMMO
-          x = ROAD_LEFT + 20 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 40);
+          x = ROAD_LEFT + 25 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 50);
           type = 'AMMO';
           texture = 'ammo';
           color = 'cyan';
           w = 30; h = 30; hitW = 30; hitH = 30;
       }
 
-      state.entities.push({ x, y: -100, w, h, hitW, hitH, type, texture, color, hit: false, active: true, flip });
+      const proposedY = -100;
+      const buffer = 30; // 30px mandatory safety gap
+
+      // Overlap Prevention Logic
+      const hasOverlap = state.entities.some(e => {
+          const verticalOverlap = Math.abs(e.y - proposedY) < (e.h/2 + h/2 + buffer);
+          const horizontalOverlap = Math.abs(e.x - x) < (e.w/2 + w/2 + buffer);
+          return verticalOverlap && horizontalOverlap;
+      });
+
+      // If this random spawn overlaps with anything already calculated, skip spawning it this frame
+      if (hasOverlap) return; 
+
+      state.entities.push({ x, y: proposedY, w, h, hitW, hitH, type, texture, color, hit: false, active: true, flip });
   };
 
   const spawnText = (x, y, text, color) => {
