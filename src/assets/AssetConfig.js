@@ -130,6 +130,8 @@ export const ASSETS = {
   ND_VAN: "assets/nd_sec.png",
   ND_POTHOLE: "assets/nd_hole.png",
   ND_AMMO: "assets/nd_ammo.png",
+  ND_GRASS: "assets/nd_grass.png", 
+  ND_ROAD: "assets/pr_bg.png",
 
 
 };

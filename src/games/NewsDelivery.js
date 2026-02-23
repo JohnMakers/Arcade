@@ -27,7 +27,8 @@ const NewsDelivery = ({ onExit }) => {
   const keys = useRef({ left: false, right: false });
 
   const gameState = useRef({
-    player: { x: CANVAS_WIDTH / 2, y: 650, w: 50, h: 50, targetX: CANVAS_WIDTH / 2 },
+    // Hero size increased from 40x60 to 50x75
+    player: { x: CANVAS_WIDTH / 2, y: 650, w: 50, h: 75, targetX: CANVAS_WIDTH / 2 },
     entities: [], 
     papers: [],   
     particles: [], 
@@ -56,9 +57,9 @@ const NewsDelivery = ({ onExit }) => {
     loadSprite('pothole', ASSETS.ND_POTHOLE);
     loadSprite('ammo', ASSETS.ND_AMMO);
     
-    // Background Textures
-    loadSprite('grass', ASSETS.TEXTURE_GRASS);
-    loadSprite('road', ASSETS.TEXTURE_ROAD);
+    // Using the new custom textures
+    loadSprite('grass', ASSETS.ND_GRASS);
+    loadSprite('road', ASSETS.ND_ROAD);
   }, []);
 
   // Timer for Instructions (Waits for GameUI's 3-second countdown)
@@ -197,7 +198,8 @@ const NewsDelivery = ({ onExit }) => {
     // Reset Game State on mount or restart
     gameState.current = {
       ...gameState.current,
-      player: { x: CANVAS_WIDTH / 2, y: 650, w: 40, h: 60, targetX: CANVAS_WIDTH / 2 },
+      // Ensure the reset state matches the new 50x75 hero size
+      player: { x: CANVAS_WIDTH / 2, y: 650, w: 50, h: 75, targetX: CANVAS_WIDTH / 2 },
       entities: [], papers: [], particles: [],
       speed: INITIAL_SPEED, score: 0, ammo: 10, distance: 0,
       lastTime: performance.now()
@@ -280,7 +282,6 @@ const NewsDelivery = ({ onExit }) => {
 
       // --- 2. RENDERING (ALWAYS RUNS) ---
       
-      // Helper function to draw scrolling background tiles
       const drawTiled = (img, dx, dWidth) => {
           if (!img || !img.complete || img.width === 0) return false;
           const imgRatio = img.height / img.width;
@@ -308,10 +309,6 @@ const NewsDelivery = ({ onExit }) => {
       // Draw Entities
       state.entities.forEach(ent => {
           drawSprite(ctx, state, ent.texture, ent.x - ent.w/2, ent.y - ent.h/2, ent.w, ent.h, ent.hit ? 'orange' : ent.color, ent.flip);
-          
-          // Optional: Debug Hitbox view (Uncomment to see the actual collision boxes)
-          // ctx.strokeStyle = 'rgba(255,0,0,0.5)';
-          // ctx.strokeRect(ent.x - ent.hitW/2, ent.y - ent.hitH/2, ent.hitW, ent.hitH);
       });
 
       // Draw Papers
@@ -370,7 +367,7 @@ const NewsDelivery = ({ onExit }) => {
           // HOUSES
           const isLeft = Math.random() < 0.5;
           x = isLeft ? ROAD_LEFT / 2 : CANVAS_WIDTH - (ROAD_LEFT / 2);
-          flip = !isLeft; // Faces left if it spawned on the right side
+          flip = !isLeft; 
           const isGreen = Math.random() < 0.7;
           type = isGreen ? 'HOUSE_GREEN' : 'HOUSE_RED';
           texture = isGreen ? 'house_green' : 'house_red';
@@ -384,9 +381,9 @@ const NewsDelivery = ({ onExit }) => {
           texture = isVan ? 'van' : 'pothole';
           color = isVan ? 'white' : 'black';
           
-          w = isVan ? 50 : 70; // Pothole is visually large
+          w = isVan ? 50 : 70; 
           h = isVan ? 80 : 70; 
-          hitW = isVan ? 45 : 30; // But pothole has very forgiving hitbox
+          hitW = isVan ? 45 : 30; 
           hitH = isVan ? 75 : 30;
       } else {
           // AMMO
