@@ -14,6 +14,7 @@ const NewsDelivery = ({ onExit }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
   // --- CONFIGURATION ---
   const CANVAS_WIDTH = 500;
@@ -22,6 +23,9 @@ const NewsDelivery = ({ onExit }) => {
   const ROAD_RIGHT = 400;
   const INITIAL_SPEED = 6;
   const MAX_SPEED = 20;
+  
+  // Define the split zone for mobile (Bottom 35% is for steering)
+  const SWIPE_ZONE_Y = CANVAS_HEIGHT * 0.65; 
 
   const keys = useRef({ left: false, right: false });
 
@@ -38,8 +42,11 @@ const NewsDelivery = ({ onExit }) => {
     lastTime: 0
   });
 
-  // Load Assets
+  // Device Detection & Asset Loading
   useEffect(() => {
+    // Detect mobile device to show appropriate instructions
+    setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window));
+
     const loadSprite = (key, src) => {
       const img = new Image();
       img.src = src;
@@ -54,8 +61,6 @@ const NewsDelivery = ({ onExit }) => {
     loadSprite('van', ASSETS.ND_VAN);
     loadSprite('pothole', ASSETS.ND_POTHOLE);
     loadSprite('ammo', ASSETS.ND_AMMO);
-    
-    // Using the new custom textures
     loadSprite('grass', ASSETS.ND_GRASS);
     loadSprite('road', ASSETS.ND_ROAD);
   }, []);
@@ -104,24 +109,47 @@ const NewsDelivery = ({ onExit }) => {
       const canvasX = (clientX - rect.left) * scaleX;
       const canvasY = (clientY - rect.top) * scaleY;
 
-      // True vector aiming for BOTH Mobile and Desktop
-      const dx = canvasX - gameState.current.player.x;
-      const dy = canvasY - gameState.current.player.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const throwSpeed = 15; // Projectile speed
-      throwPaper((dx / dist) * throwSpeed, (dy / dist) * throwSpeed);
+      if (e.type.includes('touch')) {
+          // MOBILE LOGIC: Split screen zones
+          if (canvasY >= SWIPE_ZONE_Y) {
+              // Bottom Zone: Steer ONLY
+              gameState.current.player.targetX = Math.max(ROAD_LEFT + gameState.current.player.w/2, Math.min(ROAD_RIGHT - gameState.current.player.w/2, canvasX));
+          } else {
+              // Top Zone: Aim & Throw ONLY
+              const dx = canvasX - gameState.current.player.x;
+              const dy = canvasY - gameState.current.player.y;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              const throwSpeed = 15; 
+              throwPaper((dx / dist) * throwSpeed, (dy / dist) * throwSpeed);
+          }
+      } else {
+          // DESKTOP LOGIC: Mouse clicking anywhere aims and throws
+          const dx = canvasX - gameState.current.player.x;
+          const dy = canvasY - gameState.current.player.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const throwSpeed = 15;
+          throwPaper((dx / dist) * throwSpeed, (dy / dist) * throwSpeed);
+      }
     };
 
     // Mobile swipe/drag movement
     const handleTouchMove = (e) => {
       if (!isPlaying || gameOver) return;
+      
       let clientX = e.touches[0].clientX;
+      let clientY = e.touches[0].clientY;
+      
       const rect = canvasRef.current.getBoundingClientRect();
       const scaleX = CANVAS_WIDTH / rect.width;
+      const scaleY = CANVAS_HEIGHT / rect.height;
       const canvasX = (clientX - rect.left) * scaleX;
+      const canvasY = (clientY - rect.top) * scaleY;
       
-      if (canvasX >= ROAD_LEFT && canvasX <= ROAD_RIGHT) {
-          gameState.current.player.targetX = canvasX;
+      // Only allow drag-steering if the touch is inside the bottom swipe zone
+      if (canvasY >= SWIPE_ZONE_Y) {
+          if (canvasX >= ROAD_LEFT && canvasX <= ROAD_RIGHT) {
+              gameState.current.player.targetX = canvasX;
+          }
       }
     };
 
@@ -148,7 +176,6 @@ const NewsDelivery = ({ onExit }) => {
             return;
         }
         
-        // Only update canvas state, removed React setAmmo to stop frame freezes
         state.ammo -= 1;
         
         state.papers.push({
@@ -325,12 +352,11 @@ const NewsDelivery = ({ onExit }) => {
       });
       state.particles = state.particles.filter(p => p.life > 0);
 
-      // Draw Ammo Counter directly on Canvas (prevents React DOM re-renders)
+      // Draw Ammo Counter directly on Canvas
       if (isPlaying && !gameOver) {
           ctx.fillStyle = 'cyan';
           ctx.font = '16px "Press Start 2P"';
           ctx.textAlign = 'right';
-          // Adding a nice black outline for visibility
           ctx.lineWidth = 3;
           ctx.strokeStyle = 'black';
           ctx.strokeText(`AMMO: ${state.ammo}`, CANVAS_WIDTH - 20, 40);
@@ -462,8 +488,17 @@ const NewsDelivery = ({ onExit }) => {
                 pointerEvents: 'none', color: 'lime', textShadow: '2px 2px #000',
                 fontFamily: '"Press Start 2P"', lineHeight: '1.5', zIndex: 30
             }}>
-                USE ARROWS / DRAG TO STEER<br/><br/>
-                CLICK / TAP TO THROW<br/><br/>
+                {isMobile ? (
+                    <>
+                        SWIPE BOTTOM TO STEER<br/><br/>
+                        TAP TOP TO THROW<br/><br/>
+                    </>
+                ) : (
+                    <>
+                        USE ARROWS TO STEER<br/><br/>
+                        CLICK TO THROW<br/><br/>
+                    </>
+                )}
                 TAP TO START!
             </div>
         )}
