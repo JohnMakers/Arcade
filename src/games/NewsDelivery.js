@@ -44,7 +44,6 @@ const NewsDelivery = ({ onExit }) => {
 
   // Device Detection & Asset Loading
   useEffect(() => {
-    // Detect mobile device to show appropriate instructions
     setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window));
 
     const loadSprite = (key, src) => {
@@ -80,13 +79,10 @@ const NewsDelivery = ({ onExit }) => {
 
   // Controls: Keyboard/Touch for movement, Mouse/Tap for throwing
   useEffect(() => {
-    const handlePointerDown = (e) => {
-      // Allow UI buttons to process clicks before preventing default touch behavior
+    
+    // --- DESKTOP LOGIC ---
+    const handleMouseDown = (e) => {
       if (e.target.closest('button') || e.target.closest('.interactive')) return;
-      
-      // Prevent double-firing on mobile by stopping the synthetic mousedown event
-      if (e.cancelable && e.type === 'touchstart') e.preventDefault();
-
       if (gameOver) return;
 
       if (!isPlaying) {
@@ -94,23 +90,41 @@ const NewsDelivery = ({ onExit }) => {
           return;
       }
       
-      let clientX, clientY;
-      if (e.type.includes('touch')) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const scaleX = CANVAS_WIDTH / rect.width;
+      const scaleY = CANVAS_HEIGHT / rect.height;
+      const canvasX = (e.clientX - rect.left) * scaleX;
+      const canvasY = (e.clientY - rect.top) * scaleY;
+
+      // Mouse clicking anywhere aims and throws
+      const dx = canvasX - gameState.current.player.x;
+      const dy = canvasY - gameState.current.player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const throwSpeed = 15;
+      throwPaper((dx / dist) * throwSpeed, (dy / dist) * throwSpeed);
+    };
+
+    // --- MOBILE MULTI-TOUCH START LOGIC ---
+    const handleTouchStart = (e) => {
+      if (e.target.closest('button') || e.target.closest('.interactive')) return;
+      if (e.cancelable) e.preventDefault(); // Stop synthetic mouse events
+      if (gameOver) return;
+
+      if (!isPlaying) {
+          if (showInstructions) setIsPlaying(true);
+          return;
       }
 
       const rect = canvasRef.current.getBoundingClientRect();
       const scaleX = CANVAS_WIDTH / rect.width;
       const scaleY = CANVAS_HEIGHT / rect.height;
-      const canvasX = (clientX - rect.left) * scaleX;
-      const canvasY = (clientY - rect.top) * scaleY;
 
-      if (e.type.includes('touch')) {
-          // MOBILE LOGIC: Split screen zones
+      // Iterate through ALL new fingers touching the screen simultaneously 
+      for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          const canvasX = (touch.clientX - rect.left) * scaleX;
+          const canvasY = (touch.clientY - rect.top) * scaleY;
+
           if (canvasY >= SWIPE_ZONE_Y) {
               // Bottom Zone: Steer ONLY
               gameState.current.player.targetX = Math.max(ROAD_LEFT + gameState.current.player.w/2, Math.min(ROAD_RIGHT - gameState.current.player.w/2, canvasX));
@@ -122,33 +136,29 @@ const NewsDelivery = ({ onExit }) => {
               const throwSpeed = 15; 
               throwPaper((dx / dist) * throwSpeed, (dy / dist) * throwSpeed);
           }
-      } else {
-          // DESKTOP LOGIC: Mouse clicking anywhere aims and throws
-          const dx = canvasX - gameState.current.player.x;
-          const dy = canvasY - gameState.current.player.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const throwSpeed = 15;
-          throwPaper((dx / dist) * throwSpeed, (dy / dist) * throwSpeed);
       }
     };
 
-    // Mobile swipe/drag movement
+    // --- MOBILE MULTI-TOUCH MOVE LOGIC ---
     const handleTouchMove = (e) => {
       if (!isPlaying || gameOver) return;
-      
-      let clientX = e.touches[0].clientX;
-      let clientY = e.touches[0].clientY;
-      
+      if (e.cancelable) e.preventDefault(); // Prevent accidental scrolling
+
       const rect = canvasRef.current.getBoundingClientRect();
       const scaleX = CANVAS_WIDTH / rect.width;
       const scaleY = CANVAS_HEIGHT / rect.height;
-      const canvasX = (clientX - rect.left) * scaleX;
-      const canvasY = (clientY - rect.top) * scaleY;
       
-      // Only allow drag-steering if the touch is inside the bottom swipe zone
-      if (canvasY >= SWIPE_ZONE_Y) {
-          if (canvasX >= ROAD_LEFT && canvasX <= ROAD_RIGHT) {
-              gameState.current.player.targetX = canvasX;
+      // Iterate through ALL moving fingers
+      for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          const canvasX = (touch.clientX - rect.left) * scaleX;
+          const canvasY = (touch.clientY - rect.top) * scaleY;
+          
+          // Only update steering if the moving finger is in the bottom zone
+          if (canvasY >= SWIPE_ZONE_Y) {
+              if (canvasX >= ROAD_LEFT && canvasX <= ROAD_RIGHT) {
+                  gameState.current.player.targetX = canvasX;
+              }
           }
       }
     };
@@ -190,8 +200,8 @@ const NewsDelivery = ({ onExit }) => {
 
     const wrapper = containerRef.current;
     if (wrapper) {
-      wrapper.addEventListener('mousedown', handlePointerDown);
-      wrapper.addEventListener('touchstart', handlePointerDown, { passive: false });
+      wrapper.addEventListener('mousedown', handleMouseDown);
+      wrapper.addEventListener('touchstart', handleTouchStart, { passive: false });
       wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -199,8 +209,8 @@ const NewsDelivery = ({ onExit }) => {
 
     return () => {
       if (wrapper) {
-        wrapper.removeEventListener('mousedown', handlePointerDown);
-        wrapper.removeEventListener('touchstart', handlePointerDown);
+        wrapper.removeEventListener('mousedown', handleMouseDown);
+        wrapper.removeEventListener('touchstart', handleTouchStart);
         wrapper.removeEventListener('touchmove', handleTouchMove);
       }
       window.removeEventListener('keydown', handleKeyDown);
