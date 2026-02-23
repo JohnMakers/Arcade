@@ -76,7 +76,7 @@ const NewsDelivery = ({ onExit }) => {
   // Controls: Keyboard/Touch for movement, Mouse/Tap for throwing
   useEffect(() => {
     const handlePointerDown = (e) => {
-      // FIX 1: Allow UI buttons to process clicks before preventing default touch behavior
+      // Allow UI buttons to process clicks before preventing default touch behavior
       if (e.target.closest('button') || e.target.closest('.interactive')) return;
       
       // Prevent double-firing on mobile by stopping the synthetic mousedown event
@@ -104,23 +104,12 @@ const NewsDelivery = ({ onExit }) => {
       const canvasX = (clientX - rect.left) * scaleX;
       const canvasY = (clientY - rect.top) * scaleY;
 
-      if (e.type.includes('touch')) {
-          // Mobile: Tap edges to throw left/right. 
-          if (canvasX < ROAD_LEFT + 60) {
-              throwPaper(-8, -10); 
-          } else if (canvasX > ROAD_RIGHT - 60) {
-              throwPaper(8, -10);  
-          } else {
-              gameState.current.player.targetX = canvasX;
-          }
-      } else {
-          // Desktop: True mouse vector aiming
-          const dx = canvasX - gameState.current.player.x;
-          const dy = canvasY - gameState.current.player.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const speed = 15; // Projectile speed
-          throwPaper((dx / dist) * speed, (dy / dist) * speed);
-      }
+      // True vector aiming for BOTH Mobile and Desktop
+      const dx = canvasX - gameState.current.player.x;
+      const dy = canvasY - gameState.current.player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const throwSpeed = 15; // Projectile speed
+      throwPaper((dx / dist) * throwSpeed, (dy / dist) * throwSpeed);
     };
 
     // Mobile swipe/drag movement
@@ -159,7 +148,7 @@ const NewsDelivery = ({ onExit }) => {
             return;
         }
         
-        // FIX 2: Only update canvas state, removed React setAmmo to stop frame freezes
+        // Only update canvas state, removed React setAmmo to stop frame freezes
         state.ammo -= 1;
         
         state.papers.push({
@@ -474,7 +463,7 @@ const NewsDelivery = ({ onExit }) => {
                 fontFamily: '"Press Start 2P"', lineHeight: '1.5', zIndex: 30
             }}>
                 USE ARROWS / DRAG TO STEER<br/><br/>
-                CLICK / TAP EDGES TO THROW<br/><br/>
+                CLICK / TAP TO THROW<br/><br/>
                 TAP TO START!
             </div>
         )}
