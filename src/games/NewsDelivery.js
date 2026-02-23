@@ -77,6 +77,9 @@ const NewsDelivery = ({ onExit }) => {
   // Controls: Keyboard/Touch for movement, Mouse/Tap for throwing
   useEffect(() => {
     const handlePointerDown = (e) => {
+      // FIX: Prevent double-firing on mobile by stopping the synthetic mousedown event
+      if (e.cancelable && e.type === 'touchstart') e.preventDefault();
+
       if (gameOver) return;
       if (e.target.closest('button')) return;
 
@@ -101,10 +104,11 @@ const NewsDelivery = ({ onExit }) => {
       const canvasY = (clientY - rect.top) * scaleY;
 
       if (e.type.includes('touch')) {
-          // Mobile: Tap edges to throw left/right
-          if (canvasX < ROAD_LEFT + 40) {
+          // Mobile: Tap edges to throw left/right. 
+          // Widened tap zones slightly to 60px for better reliability.
+          if (canvasX < ROAD_LEFT + 60) {
               throwPaper(-8, -10); 
-          } else if (canvasX > ROAD_RIGHT - 40) {
+          } else if (canvasX > ROAD_RIGHT - 60) {
               throwPaper(8, -10);  
           } else {
               gameState.current.player.targetX = canvasX;
@@ -374,7 +378,6 @@ const NewsDelivery = ({ onExit }) => {
           w = 80; h = 80; hitW = 70; hitH = 70;
       } else if (rand < 0.8) {
           // OBSTACLES
-          // Added a slightly tighter margin to spawn logic (25 instead of 20) to keep vans/potholes clearly on the road
           x = ROAD_LEFT + 25 + Math.random() * (ROAD_RIGHT - ROAD_LEFT - 50);
           const isVan = Math.random() < 0.5;
           type = isVan ? 'VAN' : 'POTHOLE';
